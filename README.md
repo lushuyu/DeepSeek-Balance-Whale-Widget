@@ -23,6 +23,16 @@ DeepSeek Harness（DSH）Web 界面右下角的常驻挂件：小鲸鱼气泡图
 - **每轮消耗**：SoCLaaS 的单价从 `/v1/models` 的 `soclaas.input_microdollars_per_million_tokens` / `output_...` 读取，按 `DSHW_SOCLAAS_USD_CNY`（默认 `7.1`）换算成人民币写入原有账本；泡泡里的 `¥` 金额因此是估算值，日/月额度以预算接口为准。
 - **提醒**：DeepSeek 的「余额预警 / 今日预算」是按人民币账本配置的，SoCLaaS 模式下暂不套用，避免把美元额度误当人民币阈值。
 
+> **贴图提示**：DSH 的 `llm-pi-ai` 对没有声明 `input` 的模型按 text-only 处理，输入框会直接拒绝图片。要在对话框粘贴图片，需要在 profile 的模型条目里加：
+>
+> ```yaml
+> input:
+>   - text
+>   - image
+> ```
+>
+> SoCLaaS 的 `x-test-2`、`qwen3.8:27b`、`x-test-1` 已用 base64 PNG 实测支持视觉输入；opencode 等其它 harness 需要各自声明 vision/attachment 能力，不是 SoCLaaS 服务端的问题。
+
 ## 多语言（i18n）
 
 - **自动**：读取 `navigator.languages` / `navigator.language`；`zh-*` 显示中文，其余语言显示 English。英文系统默认英文。
