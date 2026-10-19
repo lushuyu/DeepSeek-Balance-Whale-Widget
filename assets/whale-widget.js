@@ -2172,6 +2172,20 @@ try {
 } catch (err) {}
 menuBox.appendChild(menuSep1)
 menuBox.appendChild(row9)
+// —— 余额来源：跟随当前模型自动切 / 固定 DeepSeek / 固定 SoCLaaS ——
+var rowSource = menuRow()
+var sourceLabel = document.createElement('span')
+sourceLabel.textContent = '余额来源'
+var providerSourceBtn = document.createElement('button')
+providerSourceBtn.type = 'button'
+providerSourceBtn.className = 'dshwv-roleimport'
+providerSourceBtn.style.flex = '1'
+providerSourceBtn.textContent = '自动'
+providerSourceBtn.title = '点击切换：自动（跟随对话框里的模型）/ DeepSeek / SoCLaaS'
+providerSourceBtn.addEventListener('click', function (e) { e.stopPropagation(); cycleProviderMode() })
+rowSource.appendChild(sourceLabel)
+rowSource.appendChild(providerSourceBtn)
+menuBox.appendChild(rowSource)
 // —— 吸附与翻转：自定义按钮（打开吸附/翻转设置弹窗），放在“避让滚动条”下一行 ——
 var rowSnap = menuRow()
 var snapRowLabel = document.createElement('span')
@@ -2325,8 +2339,18 @@ var usageHideTimer = null
 var usageShowTimer = null
 function setUsageNavBtn(inUsage) {
   try {
-    usageRecBtn.textContent = inUsage ? '‹ 返回' : '- = 小鲸鱼记账 = -'
-    usageRecBtn.title = inUsage ? '返回主菜单' : '查看今日/近7天/全部消费记录'
+    if (inUsage) {
+      usageRecBtn.textContent = '‹ 返回'
+      usageRecBtn.title = '返回主菜单'
+      return
+    }
+    if (state.providerKind === 'soclaas') {
+      usageRecBtn.textContent = '- = SoCLaaS 额度 = -'
+      usageRecBtn.title = '查看 SoCLaaS 今日 / 本月额度与重置时间'
+      return
+    }
+    usageRecBtn.textContent = '- = 小鲸鱼记账 = -'
+    usageRecBtn.title = '查看今日/近7天/全部消费记录'
   } catch (err) {}
 }
 function showUsageSub() {
@@ -3151,10 +3175,124 @@ function usageDayLabel(day) {
   } catch (err) { return day }
 }
 function renderUsagePanel() {
+  if (state.providerKind === 'soclaas') { renderSoclaasPanel(); return }
   if (usageMainEl && usagePanelOpen && usageSet !== null) { refreshUsageMain(); return }
   buildUsageSubShell()
   refreshUsageMain()
 }
+// —— SoCLaaS 额度子界面：日/月预算、已用、剩余、重置时间（数据来自宿主 /dsh-whale/balance.json）——
+function soclaasResetLabel(iso, withDate) {
+  if (!iso) return '--'
+  var d = new Date(iso)
+  if (!isFinite(d.getTime())) return '--'
+  function p2(n) { return (n < 10 ? '0' : '') + n }
+  var hm = p2(d.getHours()) + ':' + p2(d.getMinutes())
+  return withDate ? ((d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm) : hm
+}
+function soclaasBarRow(parent, label, pct) {
+  var row = document.createElement('div')
+  row.className = 'dshwv-usage-ratio'
+  var lab = document.createElement('span')
+  lab.className = 'dshwv-usage-ratio-label'
+  lab.textContent = label
+  var track = document.createElement('div')
+  track.className = 'dshwv-usage-ratio-track'
+  var fill = document.createElement('div')
+  fill.className = 'dshwv-usage-ratio-fill'
+  var p = Number(pct)
+  if (!isFinite(p)) p = 0
+  p = Math.max(0, Math.min(100, p))
+  fill.style.width = p + '%'
+  fill.style.background = p >= 90 ? '#e0433f' : (p >= 70 ? '#e0a23f' : '#2fa24c')
+  track.appendChild(fill)
+  row.appendChild(lab)
+  row.appendChild(track)
+  parent.appendChild(row)
+}
+function renderSoclaasPanel() {
+  usageMainEl = null
+  usagePanel.innerHTML = ''
+  var sub = document.createElement('div')
+  sub.className = 'dshwv-usage-subtitle'
+  sub.textContent = '- = SoCLaaS 额度 = -'
+  usagePanel.appendChild(sub)
+  var body = document.createElement('div')
+  body.className = 'dshwv-usagebody'
+  usagePanel.appendChild(body)
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag)
+    if (cls) n.className = cls
+    if (txt !== undefined && txt !== null) n.textContent = String(txt)
+    return n
+  }
+  function row(label, value, cls) {
+    var r = el('div', 'dshwv-usage-row')
+    r.appendChild(el('span', 'dshwv-usage-model', label))
+    var v = el('span', cls || '', value)
+    v.style.flex = '0 0 auto'
+    r.appendChild(v)
+    body.appendChild(r)
+  }
+  function section(title, right) {
+    var h = el('div', 'dshwv-usage-sec')
+    h.appendChild(el('span', '', title))
+    if (right) h.appendChild(el('span', 'dshwv-usage-total', right))
+    body.appendChild(h)
+  }
+  var sc = state.soclaas
+  if (!sc) {
+    body.appendChild(el('div', 'dshwv-usage-hint', '额度数据尚未加载。点一次鲸鱼或稍等自动刷新。'))
+    var b0 = el('button', 'dshwv-usage-more', '刷新额度')
+    b0.type = 'button'
+    b0.addEventListener('click', function (e) {
+      e.stopPropagation()
+      try { refresh(true) } catch (err) {}
+      setTimeout(function () { if (usagePanelOpen) renderUsagePanel() }, 1500)
+    })
+    body.appendChild(b0)
+    return
+  }
+  var d = sc.daily || {}
+  var m = sc.monthly || {}
+  var ov = el('div', 'dshwv-usage-oview')
+  ov.appendChild(el('div', 'dshwv-usage-hint', '今日剩余额度'))
+  var big = el('div', 'dshwv-usage-oview-num', fmtUsd(d.remaining))
+  ov.appendChild(big)
+  ov.appendChild(el('div', 'dshwv-usage-hint', '已用 ' + fmtUsd(d.spent) + ' / 额度 ' + (d.allowance === null || d.allowance === undefined ? '—' : fmtUsd(d.allowance))))
+  body.appendChild(ov)
+  if (d.percent !== null && d.percent !== undefined) soclaasBarRow(body, '今日已用', d.percent)
+
+  section('今日', d.percent !== null && d.percent !== undefined ? (Number(d.percent).toFixed(1) + '%') : '')
+  row('已用', fmtUsd(d.spent))
+  row('额度', d.allowance === null || d.allowance === undefined ? '—' : fmtUsd(d.allowance))
+  row('剩余', d.remaining === null || d.remaining === undefined ? '—' : fmtUsd(d.remaining), 'dshwv-usage-total')
+  row('重置（本地时间）', soclaasResetLabel(d.resetAt, false))
+
+  section('本月', m.percent !== null && m.percent !== undefined ? (Number(m.percent).toFixed(1) + '%') : '')
+  if (m.percent !== null && m.percent !== undefined) soclaasBarRow(body, '本月已用', m.percent)
+  row('已用', fmtUsd(m.spent))
+  row('额度', m.allowance === null || m.allowance === undefined ? '—' : fmtUsd(m.allowance))
+  row('剩余', m.remaining === null || m.remaining === undefined ? '—' : fmtUsd(m.remaining), 'dshwv-usage-total')
+  row('重置（本地时间）', soclaasResetLabel(m.resetAt, true))
+
+  section('账户')
+  row('当前模型', state.model || sc.model || '—')
+  row('请求上限', sc.requestsPerMinute ? (sc.requestsPerMinute + ' 次/分钟') : '—')
+  row('赠送额度', sc.creditsRemaining === null || sc.creditsRemaining === undefined ? '—' : fmtUsd(sc.creditsRemaining))
+  row('密钥', sc.apiKeyName ? (sc.apiKeyName + (sc.apiKeyPrefix ? ' · ' + sc.apiKeyPrefix : '')) : '—')
+  row('数据更新', sc.updatedAt ? soclaasResetLabel(sc.updatedAt, true) : '—')
+
+  body.appendChild(el('div', 'dshwv-usage-hint', '数据来自 SoCLaaS /api-key/budget；日/月额度按 UTC 重置，上面已换算成本地时间。每轮消耗按 /v1/models 单价估算（汇率 ' + (sc.usdCny || '') + '）。'))
+  var b = el('button', 'dshwv-usage-more', '刷新额度')
+  b.type = 'button'
+  b.addEventListener('click', function (e) {
+    e.stopPropagation()
+    try { refresh(true) } catch (err) {}
+    setTimeout(function () { if (usagePanelOpen) renderUsagePanel() }, 1500)
+  })
+  body.appendChild(b)
+}
+
 // 子界面骨架:预警/预算设置(静态,不被刷新重建) + 记录区(可刷新);底部「‹ 返回」由 menuBox 底部固定按钮统一提供
 function buildUsageSubShell() {
   usagePanel.innerHTML = ''
@@ -14033,6 +14171,12 @@ var state = {
   todayUsage: null,
   todayUsageCurrency: 'CNY',
   usageLabel: '本地估算',
+  // 当前服务（由宿主按 DSH 的 model/selection 自动切换）：deepseek / soclaas / other
+  providerKind: 'deepseek',
+  providerName: 'DeepSeek',
+  providerMode: 'auto',
+  model: '',
+  soclaas: null,
   isPeak: false,
   peakNextChangeAt: null,
   peakHolidays: null,
@@ -18292,6 +18436,14 @@ function bubbleRowContentOf(mod) {
     }
     return { txt: '', line: null }
   }
+  if (mod.type === 'text') {
+    var txt = String(mod.text || '')
+    if (state.providerKind === 'soclaas') {
+      if (txt === 'DeepSeek 余额') txt = 'SoCLaaS 今日剩余'
+      else if (txt === '总余额(充值金额+赠金)') txt = 'SoCLaaS 今日剩余'
+    }
+    return { txt: txt, line: null }
+  }
   return { txt: mod.text || '', line: null }
 }
 // 渲染一组模块为泡泡内容(F2 渲染层:按行分组 → 行内 flex 并排(≤6 模块/行)→ 超宽自动折行;
@@ -18598,7 +18750,14 @@ function bubbleRenderModules(mods) {
     labelEl.style.display = 'none'
     amountEl.style.display = 'none'
     hintEl.style.display = 'none'
-    bubbleRowsTo(textBox, mods)
+    // SoCLaaS 没有峰谷，也没有充值/赠金钱包：真实泡泡里把这几类模块暂时隐去（编辑器里仍可编辑）。
+    var renderMods = mods
+    if (state.providerKind === 'soclaas' && Array.isArray(mods)) {
+      renderMods = mods.filter(function (m) {
+        return m && m.type !== 'peak' && m.type !== 'nextpeak' && m.type !== 'bonus' && m.type !== 'recharge'
+      })
+    }
+    bubbleRowsTo(textBox, renderMods)
   } catch (err) {}
 }
 // 编辑器真实泡泡预览:用与真实相同的宽度 B 排版(保证换行判定一致),
@@ -19024,10 +19183,26 @@ function rightGap() {
   // 开启：用用户填写的像素；填 0 也贴边
   return scrollGapPx > 0 ? scrollGapPx : 0
 }
+function fmtUsd(v) {
+  var n = Number(v)
+  return '$' + (isFinite(n) ? n.toFixed(2) : '--')
+}
+function soclaasHintText() {
+  var sc = state.soclaas || {}
+  var d = sc.daily || null
+  var m = sc.monthly || null
+  var parts = []
+  if (d && d.spent !== null && d.spent !== undefined) parts.push('今日 ' + fmtUsd(d.spent))
+  if (m && m.percent !== null && m.percent !== undefined) parts.push('本月 ' + Number(m.percent).toFixed(1) + '%')
+  else if (m && m.spent !== null && m.spent !== undefined) parts.push('本月 ' + fmtUsd(m.spent))
+  return parts.length ? parts.join(' · ') : 'SoCLaaS 额度'
+}
 function fmt(balance, currency) {
   var num = Number(balance)
   var fixed = isFinite(num) ? num.toFixed(2) : '--'
-  return currency === 'CNY' ? '¥ ' + fixed : fixed + ' ' + currency
+  if (currency === 'CNY') return '¥ ' + fixed
+  if (currency === 'USD') return '$ ' + fixed
+  return fixed + ' ' + currency
 }
 function animateAmount(from, to, currency, duration) {
   // 消耗金额泡泡显示期间，余额数字滚动不触碰金额行
@@ -19061,6 +19236,68 @@ function animateAmount(from, to, currency, duration) {
   }
   animId = requestAnimationFrame(step)
 }
+// —— 当前服务 / 余额来源 ——
+function providerModeText() {
+  var kindName = state.providerKind === 'soclaas' ? 'SoCLaaS'
+    : (state.providerKind === 'deepseek' ? 'DeepSeek' : (state.providerName || '未接入'))
+  if (state.providerMode === 'deepseek') return 'DeepSeek'
+  if (state.providerMode === 'soclaas') return 'SoCLaaS'
+  return '自动 · ' + kindName
+}
+function updateProviderUi() {
+  try {
+    img.alt = (state.providerName || 'DeepSeek') + ' 余额'
+    img.title = (state.providerName || 'DeepSeek') + ' 余额'
+  } catch (err) {}
+  try {
+    if (providerSourceBtn) providerSourceBtn.textContent = providerModeText()
+  } catch (err) {}
+  try {
+    if (!bubbleShown) labelEl.textContent = state.providerKind === 'soclaas' ? 'SoCLaaS 今日剩余' : 'DeepSeek 余额'
+  } catch (err) {}
+  try { if (!usagePanelOpen) setUsageNavBtn(false) } catch (err) {}
+}
+function setProviderModeRemote(mode) {
+  return fetch('/dsh-whale/provider.json', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: mode }),
+  })
+    .then(function (r) { return r.json().catch(function () { return null }).then(function (d) { return { ok: r.ok, d: d } }) })
+    .then(function (x) {
+      if (x.ok && x.d && x.d.ok) {
+        state.providerMode = x.d.mode || mode
+        state.providerKind = x.d.providerKind || state.providerKind
+        state.providerName = x.d.providerKind === 'soclaas' ? 'SoCLaaS' : (x.d.providerKind === 'deepseek' ? 'DeepSeek' : state.providerName)
+        state.balance = null
+        state.soclaas = null
+        shown = null
+        updateProviderUi()
+        try { refresh(true) } catch (err) {}
+        return true
+      }
+      configSaveFailNotice((x.d && x.d.error) || '切换余额来源失败')
+      return false
+    })
+    .catch(function (err) {
+      configSaveFailNotice((err && err.message) || '切换余额来源失败')
+      return false
+    })
+}
+function cycleProviderMode() {
+  var order = ['auto', 'deepseek', 'soclaas']
+  var i = order.indexOf(state.providerMode)
+  var next = order[(i + 1) % order.length]
+  state.providerMode = next
+  updateProviderUi()
+  setProviderModeRemote(next).then(function (ok) {
+    if (!ok) {
+      // 失败时回到服务器上的实际模式（下一次余额刷新会校正）
+      try { refresh(true) } catch (err) {}
+    }
+  })
+}
+
 function render() {
   // 消耗金额泡泡显示期间，余额渲染不覆盖其内容（金额行/标题行/提示行）
   if (costBubbleActive) return
@@ -19073,7 +19310,11 @@ function render() {
     hint = '加载中…'
   } else {
     amount = shown !== null ? fmt(shown, state.currency) : fmt(state.balance, state.currency)
-    hint = (state.usageLabel || '今日已用') + ' ' + (state.todayUsage !== null && state.todayUsage !== undefined ? fmt(state.todayUsage, state.todayUsageCurrency || state.currency) : '--')
+    if (state.providerKind === 'soclaas') {
+      hint = soclaasHintText()
+    } else {
+      hint = (state.usageLabel || '今日已用') + ' ' + (state.todayUsage !== null && state.todayUsage !== undefined ? fmt(state.todayUsage, state.todayUsageCurrency || state.currency) : '--')
+    }
   }
   amountEl.textContent = amount
   if (bubbleRandomActive && bubbleRandomLines) {
@@ -19254,13 +19495,22 @@ function refresh(manual) {
         state.rechargeBalance = isFinite(Number(data.rechargeBalance)) ? Number(data.rechargeBalance) : null
         state.usageLabel = data.usageLabel || '本地估算'
         if (data.stale) state.usageLabel += ' · 余额未刷新'
-        state.isPeak = !!data.isPeak
+        // 当前服务：DeepSeek / SoCLaaS / 其它。宿主按 model/selection 自动切换。
+        state.providerKind = data.providerKind || 'deepseek'
+        state.providerName = data.providerName || 'DeepSeek'
+        state.providerMode = data.providerMode || state.providerMode || 'auto'
+        state.model = data.model || state.model || ''
+        state.soclaas = data.soclaas || null
+        if (state.providerKind === 'soclaas') state.isPeak = false
+        else state.isPeak = !!data.isPeak
+        try { updateProviderUi() } catch (err) {}
   // v790（用户要求）：菜单底部那行版本小字（宿主下发 versionLabel；老宿主没有就退回 version）
   // v794：宿主现在**成功失败都带** versionLabel ⇒ 余额失败也不会让版号空着
   setVersionLabel(data.versionLabel || data.version)
         state.peakNextChangeAt = isFinite(Number(data.peakNextChangeAt)) ? Number(data.peakNextChangeAt) : null
         state.peakHolidays = Array.isArray(data.peakHolidays) ? data.peakHolidays : null
-        checkUsageAlerts(nb, state.todayUsage)
+        // DeepSeek 的余额预警/今日预算按人民币配置；SoCLaaS 的额度口径不同，先不套用，避免误报。
+        if (state.providerKind !== 'soclaas') checkUsageAlerts(nb, state.todayUsage)
         if (changed && !currencyChanged) {
           if (!manual) {
             showBubble()
@@ -19289,6 +19539,13 @@ function refresh(manual) {
       } else {
         state.status = 'error'
         state.message = (data && data.error) ? String(data.error) : '获取失败'
+        if (data && data.providerKind) {
+          state.providerKind = data.providerKind
+          state.providerName = data.providerName || state.providerName
+          state.providerMode = data.providerMode || state.providerMode
+        }
+        if (data && data.code === 'UNSUPPORTED_PROVIDER') { state.balance = null; state.soclaas = null }
+        try { updateProviderUi() } catch (err) {}
         // v781：把宿主的错误码也打到控制台 —— "只登录客户端读不到余额"这类反馈里，
         //   界面只显示一句人类可读的文案，而 code（NO_KEY / BOTH_FAILED / SHAPE …）才是排查入口。
         try { console.warn('[dsh-whale] 余额读取失败', (data && data.code) || '', state.message) } catch (err) {}
@@ -22226,6 +22483,7 @@ try {
 var WAIT_URL = '/dsh-whale/wait.json'
 var WAIT_SOUND_KEY = 'dshw-wait-sound'
 var waitSeenId = ''
+var lastProviderSig = ''
 function waitEventCfg(kind) {
   try { return ((usageSet || {}).events || {})[kind] || {} } catch (err) { return {} }
 }
@@ -22235,6 +22493,23 @@ function pollWaitState() {
       .then(function (r) { return r.json() })
       .then(function (d) {
         if (!d || !d.ok) return
+        // 模型选择变化（DeepSeek <-> SoCLaaS）时立刻重新取余额，不必等 60 秒轮询。
+        var psig = [d.providerKind || '', d.provider || '', d.model || '', d.providerMode || ''].join('|')
+        if (psig !== lastProviderSig) {
+          var firstSig = lastProviderSig === ''
+          lastProviderSig = psig
+          if (d.providerKind && (!firstSig || d.providerKind !== state.providerKind)) {
+            // 换服务时先把旧币种的数字清掉，避免 SoCLaaS 的 USD 额度还没回来时继续显示 CNY 余额。
+            if (d.providerKind !== state.providerKind) {
+              state.balance = null
+              state.soclaas = null
+              shown = null
+              state.status = 'loading'
+              try { render() } catch (err) {}
+            }
+            setTimeout(function () { try { refresh(false) } catch (err) {} }, 0)
+          }
+        }
         if (typeof d.sessionName === 'string') waitSessionName = d.sessionName
         var p = d.pending || null
         if (!p || !p.kind) {

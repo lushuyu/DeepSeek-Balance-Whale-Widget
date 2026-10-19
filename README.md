@@ -4,8 +4,24 @@
 
 DeepSeek Harness（DSH）Web 界面右下角的常驻挂件：小鲸鱼气泡图 + DeepSeek API 余额 + 今日已用 + 每轮对话消耗，并且**泡泡内容可以完全自定义**（点击序列、模块化排版、并列加权出泡、随机语句/随机图片）。标准 DSH bundle 插件，`dsh plugin` 一键安装，无需任何会话令牌。
 
+> 🍴 **这是 SoCLaaS 适配分支**：[lushuyu/DeepSeek-Balance-Whale-Widget](https://github.com/lushuyu/DeepSeek-Balance-Whale-Widget) `feat/soclaas-support`，基于上游 [MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget) v0.4.2（`5247dd6`）。代码沿用上游 MIT 许可；`assets/` 素材的许可范围见 [PROVENANCE.md](PROVENANCE.md)，不属于 MIT。
+>
+> 安装本分支：`dsh plugin --profile web add github:lushuyu/DeepSeek-Balance-Whale-Widget#feat/soclaas-support`（桌面端请用对应 profile / 宿主插件管理入口）。
+
 > ⚠️ **Codex 版小鲸鱼已迁至独立仓库** → <https://github.com/Yang-huai406/Codex-Whale-Public>（**已安装用户无需重装**；详见下方「两条分支怎么选」）
 <!-- 迁移横幅（v0.3.19 起）：迁移稳定后（约 2026-11，或发过 1–2 个版本）可只删这一行 blockquote，保留下方分支表与「致谢」——别让它长期占着第一屏 -->
+
+## SoCLaaS 支持（本分支）
+
+本分支在原有 DeepSeek 余额之外，接入了 NUS SoC 的 **SoCLaaS** 额度：
+
+- **自动切换**：DSH 在对话框里切换模型时会追加 `model/selection` 事件（含 provider/model）。挂件据此在 **DeepSeek** 与 **SoCLaaS** 之间自动换账单来源，不需要手动改配置。
+- **主数字**：SoCLaaS 模式下显示「今日剩余额度」（日额度 − 今日已用，USD）；下面一行显示「今日已用 $x · 本月 y%」。
+- **额度面板**：菜单底部按钮会变成「- = SoCLaaS 额度 = -」，点开可看今日/本月的额度、已用、剩余、重置时间（本地时区）、请求上限与密钥名。
+- **余额来源**：主菜单新增「余额来源」，点击可在 `自动 → DeepSeek → SoCLaaS` 之间循环；固定某一档适合自动识别不符合预期时排查。
+- **凭据**：沿用 DSH 凭据里的 `SOCLAAS_API_KEY`；只发往 `soclaas-portal.comp.nus.edu.sg/api-key/budget` 与 `soclaas-api.comp.nus.edu.sg/v1/models` 两个固定端点。
+- **每轮消耗**：SoCLaaS 的单价从 `/v1/models` 的 `soclaas.input_microdollars_per_million_tokens` / `output_...` 读取，按 `DSHW_SOCLAAS_USD_CNY`（默认 `7.1`）换算成人民币写入原有账本；泡泡里的 `¥` 金额因此是估算值，日/月额度以预算接口为准。
+- **提醒**：DeepSeek 的「余额预警 / 今日预算」是按人民币账本配置的，SoCLaaS 模式下暂不套用，避免把美元额度误当人民币阈值。
 
 ## 两条分支怎么选
 
@@ -412,11 +428,12 @@ curl http://127.0.0.1:3080/dsh-whale/audio.json
 - `/dsh-whale/audio-fragment.wav?id=exp_orb` → 200 `audio/wav`（内置任务结束音；无需用户导入）
 - `/dsh-whale/audio-fragment.wav?id=end_a` → 200 `audio/wav`（内置任务结束音 A）
 - `/dsh-whale/wait.json` → 200 JSON，含 `{ok:true, pending}`；`pending` 为当前挂起的「提问 / 授权」（`{kind:'question'|'approval', id, ts}`）或 `null` —— 这是「提问提示 / 授权提示」音效与常驻气泡的数据源（默认每秒轮询一次）
+- `/dsh-whale/provider.json` → GET 返回当前余额来源（`{ok, mode, providerKind, provider, model}`）；PUT `{mode:'auto'|'deepseek'|'soclaas'}` 手动切换“自动 / DeepSeek / SoCLaaS”
 - `/dsh-whale/about.json` → 200 JSON：菜单底部版号那行点开后的「关于 / 自检」面板数据源（版本、通道、文件路径与时间、数据落点、记账/余额/Codex 状态；路径已脱敏，**点开才请求**）
 - `/dsh-whale/update-check.json` → 200 JSON：检查更新（`{ok, current, latest, hasUpdate, source}`）；**点了才联网**，镜像优先（npmmirror → jsdelivr → unpkg → npmjs）+ `npm view` 兜底，宿主侧 10 分钟缓存
 - 浏览器 F5 后右下角出现挂件
 
-> ⚠️ **关于上面这些 `curl`**：全部 **26 个** `/dsh-whale/*` 路由都已接入 **DSH 浏览器信任栅栏**（`connection.requestRejection`）。
+> ⚠️ **关于上面这些 `curl`**：全部 **27 个** `/dsh-whale/*` 路由都已接入 **DSH 浏览器信任栅栏**（`connection.requestRejection`）。
 > 因此**不带会话凭据的裸 `curl` 会返回 401**（伪造 `Host` 头则是 403）—— 这是预期行为，不是接口坏了。
 > 想验证接口是否存活，看返回 **401/403** 即说明路由已注册且栅栏在工作；在浏览器里访问同一条路径（带会话）才是 200。
 > 另外**自 0.3.15 起，写请求（`POST`/`PUT`/`PATCH`/`DELETE`）还必须是本机来源**（Host 为 `127.0.0.1`/`localhost`/`[::1]`），否则 403 —— 详见上方「安全边界」。
