@@ -79,6 +79,3145 @@ function dshwInit() {
 if (window.__dshWhaleInit) return
 window.__dshWhaleInit = true
 
+// ===== i18n (auto system language + manual override) =====
+// 字典覆盖插件前端与宿主返回的可见文案；运行时只查本地字典，不联网。
+var DSHW_I18N = (function () {
+  var EN = {
+  "订阅 / 资源包用这里：总量填套餐额度，已用按会话 token 自动累计（跨天保留）。泡泡里可用 {quota} 已用百分比、{quota_used} 已用、{quota_left} 剩余、{quota_total} 总量、{quota_reset} 重置倒计时": "Subscription/resource packages are used here: the total amount is filled in the package quota, and the used amount is automatically accumulated according to the session token (retained across days). Available in the bubble are {quota} used percentage, {quota_used} used, {quota_left} remaining, {quota_total} total, {quota_reset} reset countdown",
+  "官方已下线 /user/info 余额接口（2026-08-14 起停止服务；公告称后续会提供替代 API，暂未上线）→ 余额显示「—」，今日已用按会话事件估算；「测试连通性」用 /v1/models 验证 key": "The official /user/info balance interface has been offline (service will be discontinued from 2026-08-14; the announcement stated that a replacement API will be provided in the future, but it is not online yet) → The balance shows \"—\", and today's usage is estimated based on session events; \"Test Connectivity\" uses /v1/models to verify the key",
+  "该模型的手动额度（在模型菜单「额度（手动）」里填总量与已用）；模板变量 {quota} / {quota_used} / {quota_left} / {quota_total} / {quota_reset}": "The manual quota of the model (fill in the total amount and used amount in the model menu \"Quota (manual)\"); template variable {quota} / {quota_used} / {quota_left} / {quota_total} / {quota_reset}",
+  "官方无余额接口（余额/用量见控制台，或按会话 token 估算）。探活走 /v1/models：需要 x-api-key + anthropic-version 两个请求头（v791 起支持，模板已预置）": "Official no-balance interface (see the console for balance/usage, or estimate based on session token). Explore /v1/models: Two request headers x-api-key + anthropic-version are required (supported since v791, the template has been preset)",
+  "<div style=\"margin-top:4px\">{session} 在挂起时替换为当前对话名（读不到显示「当前对话」，超长按 12 字符截断并追加 ...）</div>": "<div style=\"margin-top:4px\">{session} is replaced by the current conversation name when suspended (the \"current conversation\" cannot be read and displayed, long press 12 characters to truncate and append...) </div>",
+  "<div style=\"margin-top:4px;opacity:.75\">保存进框库后，还要在「自定义泡泡」窗口点<b>保存</b>才会落盘生效。</div>": "<div style=\"margin-top:4px;opacity:.75\">After saving it into the frame library, you have to click <b>Save </b> in the \"Custom Bubble\" window for the order to take effect. </div>",
+  "数据来自 SoCLaaS /api-key/budget；日/月额度按 UTC 重置，上面已换算成本地时间。每轮消耗按 /v1/models 单价估算（汇率 ": "The data comes from SoCLaaS /api-key/budget; the daily/monthly quota is reset according to UTC, and the above has been converted to local time. The consumption of each round is estimated based on the unit price of /v1/models (exchange rate",
+  "余额/用量需火山引擎 AK/SK 签名的 OpenAPI（或控制台）→ 余额「—」，今日已用按会话事件估算；探活用 /api/v3/models（实测可用）": "Balance/usage requires OpenAPI (or console) signed by Volcano Engine AK/SK → Balance \"—\", used today is estimated based on session events; use /api/v3/models for exploration (available in actual testing)",
+  "<div>· SVG 代码：留空用上面选的预设，填了按代码画（按 1026×700 画布坐标）；只放行 path/ellipse/circle/rect/": "<div> · SVG code: Leave it blank and use the preset selected above, fill it in and draw according to the code (according to 1026×700 canvas coordinates); only path/ellipse/circle/rect/ is allowed",
+  "单位为「币种 / 百万 token」，留空则沿用内置价目表。币种选美元时请填汇率，记账会换算成人民币（账本统一按 CNY 结算）；自定义单价不分峰谷。": "The unit is \"currency/million tokens\". If left blank, the built-in price list will be used. Please fill in the exchange rate when selecting US dollars as the currency. Accounting will be converted into RMB (account books will be settled in CNY); the custom unit price does not distinguish between peaks and valleys.",
+  "多个请求头用英文分号分隔，例：x-api-key:{key};anthropic-version:2023-06-01（{key} 会被替换成密钥）。": "Multiple request headers are separated by English semicolons, for example: x-api-key:{key};anthropic-version:2023-06-01 ({key} will be replaced by the key).",
+  "默认 Bearer {key}；也可写多个头：x-api-key:{key};anthropic-version:2023-06-01（英文分号分隔）": "Default Bearer {key}; multiple headers can also be written: x-api-key: {key}; anthropopic-version: 2023-06-01 (English semicolon separated)",
+  "[whale-balance] 宿主信任栅栏不可用（connection.requestRejection 缺失）：已启用插件自带的回环/同源校验，": "[Whale-balance] The host trust fence is not available (connection.requestRejection is missing): the loopback/same origin verification that comes with the plug-in has been enabled.",
+  "点任意一行复制该行；每节标题右侧可整节复制。自检只访问本机两条插件路由（不联网、不耗 token）。前端改动需 Ctrl+F5，宿主改动需重启服务。": "Click any line to copy the line; the entire section can be copied to the right of each section title. The self-test only accesses two plug-in routes on this machine (not connected to the Internet and does not consume tokens). Front-end changes require Ctrl+F5, and host changes require restarting the service.",
+  "本地推理没有余额概念 → 余额「—」；填好 Base URL（如 http://127.0.0.1:11434/v1）后按会话事件统计 token": "Local models have no balance concept → balance \"—\"; fill in the Base URL (e.g. http://127.0.0.1:11434/v1) and tokens are counted from session events",
+  "该厂商的订阅额度（由厂商接口读取，非手动）；模板变量 {plan} 额度 / {plan_reset} 刷新时间 / {plan_left} 剩余": "The manufacturer's subscription quota (read by the manufacturer interface, not manually); template variable {plan} quota / {plan_reset} refresh time / {plan_left} remaining",
+  "默认不勾：地址不是该厂商内置端点时，插件会拒绝把密钥发出去。自建网关（New API / 自托管 / Ollama 等）确认是自己的服务后再勾。": "Unchecked by default: When the address is not the built-in endpoint of the manufacturer, the plug-in will refuse to send the key. Check the self-built gateway (New API / Self-Hosting / Ollama, etc.) after confirming that it is your own service.",
+  "<div style=\"margin-top:4px\">· 勾上（默认）：子智能体完成**不提示**，只有主会话的回合结束才提示。</div>": "<div style=\"margin-top:4px\">· Checked (default): **No prompts** will be made when the subagent is completed, and will only be prompted when the turn of the main session ends. </div>",
+  "点击重新检查 npm 上的最新版本（五个源并行：npmmirror / jsdelivr / unpkg / npmjs / npm-cli）": "Click to recheck for the latest version on npm (five sources in parallel: npmmirror/jsdelivr/unpkg/npmjs/npm-cli)",
+  "<div style=\"font-weight:600;margin-bottom:4px\">可选模块 &amp; 泡泡内容预览</div>": "<div style=\"font-weight:600;margin-bottom:4px\">Optional module & bubble content preview</div>",
+  "<div style=\"margin-top:4px\">{cost} 在触发时替换为本轮消耗金额(默认内容请保持 {cost})</div>": "<div style=\"margin-top:4px\">{cost} is replaced with the current round consumption amount when triggered (please keep the default content {cost})</div>",
+  "<div style=\"margin-top:4px;opacity:.75\">金额与用量照常记账，这个开关只影响\"提不提示\"。</div>": "<div style=\"margin-top:4px;opacity:.75\">The amount and usage will be recorded as usual. This switch only affects \"prompt or not\". </div>",
+  "<div style=\"font-weight:600;margin-bottom:4px\">可选模块 &amp; 提醒内容</div>": "<div style=\"font-weight:600;margin-bottom:4px\">Optional modules & reminder content</div>",
+  "云厂商：余额/账单要走阿里云 AK/SK 的 OpenAPI（或控制台），API key 查不到 → 余额「—」，今日已用按会话事件估算": "Cloud vendor: The balance/bill should go to the OpenAPI (or console) of Alibaba Cloud AK/SK, the API key cannot be found → Balance \"—\", today's usage is estimated based on session events",
+  "官方已下线 billing 余额接口，没有「用 API key 查余额」的公开接口（只能看控制台）→ 余额「—」，今日已用按会话事件估算": "The official billing balance interface has been offline. There is no public interface to \"check the balance using API key\" (you can only view the console) → The balance is \"—\", which is estimated based on session events today.",
+  "官方无余额接口（配额只在 AI Studio / Cloud 控制台）→ 余额「—」，今日已用按会话事件估算；探活用 ?key= 形式": "Official no-balance interface (quota only in AI Studio/Cloud console) → Balance \"-\", used today is estimated based on session events; use the ?key= format to explore",
+  "<div style=\"font-weight:600;margin-bottom:4px\">可用占位符(替换到内容里)</div>": "<div style=\"font-weight:600;margin-bottom:4px\">Available placeholders (replaced into content)</div>",
+  "{plan} 额度 / {plan_left} 剩余 / {plan_reset} 刷新时间（多窗口时随「显示样式」所选窗口变化）": "{plan} quota / {plan_left} remaining / {plan_reset} refresh time (changes with the window selected in \"Display style\" when there are multiple windows)",
+  "云厂商：余额/账单要走腾讯云 SecretId/Key（或控制台），API key 查不到 → 余额「—」，今日已用按会话事件估算": "Cloud vendor: The balance/bill should go to Tencent Cloud SecretId/Key (or console), API key cannot be found → Balance \"—\", today's usage is estimated based on session events",
+  "<div style=\"margin-top:4px\">{below} / {amount} 在触发时替换为实际数值</div>": "<div style=\"margin-top:4px\">{below} / {amount} is replaced with the actual value </div> when triggered",
+  "<div style=\"margin-top:5px;opacity:.65\">其余文字原样显示;留空=默认自动内容</div>": "<div style=\"margin-top:5px;opacity:.65\">The remaining text is displayed as is; leave blank = default automatic content</div>",
+  "<div style=\"font-weight:600;margin-bottom:4px\">子智能体完成时不提示</div>": "<div style=\"font-weight:600;margin-bottom:4px\">No prompt when the sub-agent is completed</div>",
+  "<div style=\"margin-top:4px;opacity:.75\">手机端:长按约 0.4 秒进入拖动</div>": "<div style=\"margin-top:4px;opacity:.75\">Mobile version: Press and hold for about 0.4 seconds to enter dragging</div>",
+  "该厂商没有「用 API key 查余额」的接口 → 余额显示「—」，今日已用按会话事件估算（本机每轮对话的真实 token）。": "This manufacturer does not have an interface for \"checking the balance using API key\" → the balance shows \"-\", and today it has been estimated based on session events (the real token of each round of conversation on this machine).",
+  ":     createElement + textContent + append   —— 没有 await，**不可能": ": CreateElement + textContent + append - without await, **impossible",
+  "<div style=\"font-weight:600;margin-bottom:4px\">内容显示范围与位移</div>": "<div style=\"font-weight:600;margin-bottom:4px\">Content display range and displacement</div>",
+  "<div>· <b>位移</b>：这个槽位的 x/y（画布单位），与拖动等价；会被钳制在“完全留在可显示范围内”</div>": "<div>· <b>Displacement</b>: The x/y (canvas unit) of this slot is equivalent to dragging; it will be clamped to \"completely stay within the displayable range\" </div>",
+  "拖 8 个方块可缩放；方向键 1 / Shift 10 / Alt 0.2；靠近中线·边缘·其它泡泡时吸附（6）</div>": "Drag 8 squares to zoom; arrow keys 1 / Shift 10 / Alt 0.2; snap when close to the center line, edge, or other bubbles (6) </div>",
+  "<div>子智能体（subagent）也有自己的回合：跑完时旧行为会像主会话一样弹一次\"任务结束\"提示/音效。</div>": "<div>The subagent also has its own turn: when the run is finished, the old behavior will play a \"task end\" prompt/sound effect just like the main session. </div>",
+  "<div style=\"font-weight:600;margin-bottom:4px\">泡泡框编辑器</div>": "<div style=\"font-weight:600;margin-bottom:4px\">Bubble box editor</div>",
+  "<div>· <b>内容限制范围</b>：文字只会落在这个矩形里（只管大泡泡）。预览里拖它的<b>边框</b>可移动、": "<div>· <b>Content restriction range </b>: Text will only fall within this rectangle (just big bubbles). Drag its<b>border</b> in the preview to move it.",
+  "<div>· 图片：走站内图库；\"上传新图\"保持原比例（GIF 也能用），\"裁剪…\"复用角色导入的裁剪窗口</div>": "<div>· Picture: Go to the gallery in the site; \"Upload new picture\" maintains the original proportion (GIF can also be used), \"Crop...\" reuses the cropping window of the character import </div>",
+  "Host、Content-Length、Connection、Transfer-Encoding 等危险头一律被忽略。": "Danger headers such as Host, Content-Length, Connection, Transfer-Encoding, etc. are ignored.",
+  "云厂商：余额/账单要走百度云 AK/SK（或控制台），API key 查不到 → 余额「—」，今日已用按会话事件估算": "Cloud vendor: The balance/bill should go to Baidu Cloud AK/SK (or console), the API key cannot be found → Balance \"—\", today's usage is estimated based on session events",
+  "<div>· 「自动估算」按当前形状找一块尽量大的干净区域；失败或用不上时回落默认（也能当\"重置\"用）</div>": "<div>· \"Auto Estimation\" finds a clean area as large as possible based on the current shape; falls back to the default if it fails or is no longer needed (can also be used as a \"reset\") </div>",
+  "<div>· 「自动估算」按当前形状找一块尽量大的干净区域；失败或用不上时回落默认（也能当“重置”用）</div>": "<div>· \"Auto Estimation\" finds a clean area as large as possible based on the current shape; falls back to the default if it fails or is no longer needed (can also be used as a \"reset\") </div>",
+  "一个泡泡只能有一个图片类模块(图片/动图 或 随机图片)。当前泡泡已含图片,请先修改或删除现有图片模块后再添加。": "A bubble can only have one picture module (picture/animation or random picture). The current bubble already contains pictures, please modify or delete the existing picture module before adding it.",
+  "同国内站：/user/info 余额接口已停止服务（国际站文档尚未同步）→ 余额「—」，今日已用按会话事件估算": "Same as domestic site: /user/info balance interface has stopped serving (international site documents have not yet been synchronized) → balance \"—\", today's usage is estimated based on session events",
+  "<div style=\"padding:8px 6px;color:#203170\">加载中…</div>": "<div style=\"padding:8px 6px;color:#203170\">Loading...</div>",
+  "<div>· 三个内置预设：经典椭圆 / 圆角矩形 / 方形锯齿；也可写自定义 SVG 代码</div>": "<div>· Three built-in presets: classic ellipse / rounded rectangle / square zigzag; you can also write custom SVG code </div>",
+  "关闭后不再读取 ~/.codex/sessions 统计本机 Codex 用量（会话日志很大时建议关闭）": "~/.Codex/sessions will no longer be read after closing to count local Codex usage (it is recommended to close when the session log is very large)",
+  "等待提问 / 授权的提示气泡：<b>默认点气泡就能收起来</b>（点一下收起，同一条挂起不会再自动弹回；": "Prompt bubble waiting for question/authorization: <b>By default, you can close it by clicking on the bubble </b> (click to close it, and the same pending item will not automatically bounce back;",
+  "（若这是你自建/自托管的网关，请在**本机**打开插件面板，对该模型勾选「允许把凭据发送到自定义地址」）": "(If this is your self-built/self-hosted gateway, please open the plug-in panel on **Local** and check \"Allow credentials to be sent to custom addresses\" for the model)",
+  "不带冒号的写法（如 Bearer {key}）仍按 Authorization 头发送，老配置无需改。": "The writing method without colon (such as Bearer {key}) is still sent according to the Authorization header, and the old configuration does not need to be changed.",
+  "开启：<b>点一下角色 = 往后推进一项</b>（不再回到首次点击泡泡）；走到最后一项再点＝收起泡泡。": "Open: <b>Click the character = advance one item </b> (no longer return to the first clicked bubble); go to the last item and click again = close the bubble.",
+  "方向键 1 / Shift 10 / Alt 0.2；靠近中线·边缘·其它泡泡时吸附（6）</div>": "Arrow keys 1 / Shift 10 / Alt 0.2; adsorb when close to the center line, edge, or other bubbles (6) </div>",
+  "核对统计区间内的全部到账后，重新计算本地消费。此操作不会充值，也不会改变 DeepSeek 账户余额。": "After checking all arrivals within the statistical interval, recalculate local consumption. This operation will not top up your funds, nor will it change your DeepSeek account balance.",
+  "<div style=\"margin-top:4px\">同一行模块并排显示(≤6 个):</div>": "<div style=\"margin-top:4px\">Display modules in the same row side by side (≤6):</div>",
+  "<div style=\"padding:10px;color:#203170\">加载中…</div>": "<div style=\"padding:10px;color:#203170\">Loading...</div>",
+  "<div style=\"padding:10px;color:#203170\">加载失败</div>": "<div style=\"padding:10px;color:#203170\">Load failed</div>",
+  "<div>· 预览里<b>拖动</b>任一泡泡可移动（钳制在画布内、至少 30% 可见）</div>": "<div>· In the preview<b>drag</b> any bubble can be moved (clamped within the canvas, at least 30% visible)</div>",
+  "内容显示范围（画布单位 0–1026 / 0–700）；方向键 1、Shift 10、Alt 0.2": "Content display range (canvas units 0–1026 / 0–700); arrow keys 1, Shift 10, Alt 0.2",
+  "勾选「重置已用基准」并保存：把自动统计的起点设为当前值（比如换了新资源包时用），已用从 0 重新算。": "Check \"Reset Used Baseline\" and save: Set the starting point of automatic statistics to the current value (for example, when changing to a new resource pack), and recalculate used data from 0.",
+  "按你定的规则重算：量出内容的包围盒 → 中心对准原本大泡泡的中心 → 内容显示范围取原本大泡泡的大小": "Recalculate according to the rules you set: measure the bounding box of the content → align the center with the center of the original big bubble → the content display range takes the size of the original big bubble",
+  "<div>· 「取消」不会改动任何东西；「重置」回到<b>打开这个窗口时</b>的样子</div>": "<div>· \"Cancel\" will not change anything; \"Reset\" returns to <b>how it looked when </b> was opened </div>",
+  "「事件匹配」用于没有余额差的模型：本机每轮对话的真实 token 花费，按这里的关键字归到本模型。": "\"Event matching\" is used for models with no balance difference: the real token cost of each round of dialogue of this machine is attributed to this model according to the keywords here.",
+  "临时把全局 soundVol / usageSet.taskEnd 改掉、finally 再改回来": "Temporarily change the global soundVol / usageSet.taskEnd, finally change it back",
+  "官方无公开的余额查询接口（额度在 console.x.ai）→ 余额「—」，今日已用按会话事件估算": "There is no official public balance query interface (the balance is at console.x.ai) → Balance \"—\", used today is estimated based on session events",
+  "子智能体（subagent）跑完自己的回合时，不弹\"任务结束\"提示与音效；关掉则和主会话一样提示": "When the subagent finishes its turn, the \"task end\" prompt and sound effect will not play; if it is turned off, it will prompt the same as the main session.",
+  "所有路由（含写接口）仍受它保护；若本机 dsh 部署在非回环地址（反代/局域网），请用环境变量 ": "All routes (including write interfaces) are still protected by it; if the local dsh is deployed at a non-loopback address (reverse generation/LAN), please use environment variables",
+  "把四个事件的音量/自动关闭/冒泡/音效选择恢复为默认值（不动外观、位置、账本、角色与自定义泡泡）": "Restore the volume/auto-off/bubble/sound effect selection of the four events to default values (no change in appearance, location, ledger, character and custom bubble)",
+  "关闭（默认）：<b>点角色</b>＝回到第 1 个泡泡（点泡泡才是往后推进）。<br><br>": "Off (default): <b>Click the character </b> = return to the first bubble (clicking the bubble is to advance backward). <br><br>",
+  "同一行模块并排(≤6):拖 ⠿ 整行排序;拖模块块到某行左/右边缘=并入该行,上/下=另起一行": "Modules in the same row side by side (≤6): Drag ⠿ to sort the entire row; drag module blocks to the left/right edge of a row = merge into the row, up/down = start a new row",
+  "否则任何拿到 Web 会话的人都能把凭据改指向自己的服务器，从而把真实 API key 带走。": "Otherwise anyone who gets ahold of the web session can redirect the credentials to their own server, taking the real API key with them.",
+  "小鲸鱼记账归档：events 超 90 天或超 2 万条、history 超 365 天的部分": "Whale accounting archive: events exceeding 90 days or exceeding 20,000 entries, and history exceeding 365 days",
+  "9/14 12:00 起 pro 请求路由到 V4.1 Flash 并按 Flash 价计费": "From 9/14 12:00, pro requests are routed to V4.1 Flash and billed according to the Flash price",
+  "polygon/polyline/g 与几何·描边属性，脚本/事件/外链会被剥掉</div>": "Polygon/polyline/g and geometry/stroke attributes, scripts/events/external links will be stripped off </div>",
+  "打开下面这个开关后，<b>点角色（鲸鱼）也能收掉提示气泡</b> —— 和「自定义泡泡」里的": "After turning on the switch below, <b>clicking on the character (whale) can also close the prompt bubble </b> - and the one in \"Customized Bubble\"",
+  "<div>· 左侧选<b>大泡泡/小泡泡1/小泡泡2/全选</b>，右侧改属性</div>": "<div>· Select <b>Big Bubble/Small Bubble 1/Small Bubble 2/Select all </b> on the left, and change the attribute </div> on the right",
+  "<div>· 形状在它轮廓外的那圈照旧可直接拖（两者各占各的区域，不需要切换）</div>": "<div>· The circle outside the outline of the shape can still be dragged directly (each occupies its own area, no need to switch) </div>",
+  "，没有请填 0）：到期赠金、余额退回等。仅填写统计起点之后的金额；保存会替换之前的校正值。": ", Please fill in 0 if not): Expiration bonus, balance refund, etc. Only fill in the amount after the statistical starting point; saving will replace the previous correction value.",
+  "<div>· 预览用的是你「首次点击」的真实内容；虚线框 = 当前选中的槽位</div>": "<div>· The preview uses the actual content of your \"first click\"; dotted box = currently selected slot </div>",
+  "自 0.3.15 起，配置与凭据的改动只能在**本机**（回环地址）打开界面进行 —— ": "Since 0.3.15, configuration and credential changes can only be made in the **local** (loopback address) opening interface ——",
+  "<div>点击「可选模块」即可加入提醒内容;桌面端也可直接拖入下方内容框。</div>": "<div>Click \"Optional Module\" to add reminder content; on the desktop, you can also drag it directly into the content box below. </div>",
+  "你回答或批准之后、或下一次新的提问 / 授权到来时，照常冒泡并响铃）。<br><br>": "After you answer or approve, or the next time a new question/authorization comes, bubble and ring as usual). <br><br>",
+  "该模块自动显示**当前对话名**（占位符 {session}），可调下方颜色 / 字号": "This module automatically displays the **current conversation name** (placeholder {session}), and the color/font size below is adjustable",
+  "<div>点击「可选模块」即可加入泡泡;桌面端也可直接拖到下方泡泡框。</div>": "<div>Click \"Optional Module\" to add a bubble; on the desktop, you can also drag it directly to the bubble box below. </div>",
+  "DSHW_TRUSTED_HOSTS 声明允许的 Host（逗号分隔，可带端口）。": "DSHW_TRUSTED_HOSTS declares allowed hosts (comma separated, optionally with ports).",
+  "尚无可校正的余额观测。请先配置 DeepSeek API key 并成功刷新余额。": "There are no corrected balance observations yet. Please configure the DeepSeek API key first and refresh the balance successfully.",
+  "确需远端管理，请用环境变量 DSHW_ADMIN_HOSTS 声明允许的管理主机。": "If you really need remote management, please use the environment variable DSHW_ADMIN_HOSTS to declare the allowed management hosts.",
+  "音效总开关：关掉后不出声（含音效组试听），并立刻挂起音频上下文、把系统睡眠交还给你": "Sound effect master switch: No sound will be produced after turning it off (including sound effect group audition), and the audio context will be suspended immediately, returning the system to sleep for you.",
+  "，要在这里（渲染/预览时）就换成对话名，否则真实泡泡与编辑器预览都会**原样显示 ": ", If you want to change it here (when rendering/previewing), change it to the dialog name, otherwise the real bubbles and editor preview will be displayed as they are.",
+  "<div style=\"opacity:.8\">该模块无自动内容占位</div>": "<div style=\"opacity:.8\">This module has no automatic content placeholder</div>",
+  "<div>· <b>内容显示范围</b>：文字只会落在这个矩形里（只管大泡泡）。": "<div>· <b>Content display range </b>: The text will only fall in this rectangle (just big bubbles).",
+  "<div>· 拖到某行上/下 = 另起一行(拖回本行上下 = 拆行)</div>": "<div>· Drag to the top/bottom of a certain line = start a new line (drag back to the top or bottom of the current line = split the line) </div>",
+  "[whale-balance] 已拒绝一个来自非本机的**写请求**（Host=": "[Whale-balance] A **write request** from a non-local host (Host=",
+  "{session} 会替换为当前对话名，超长自动截断（读不到时显示「当前对话」）": "{session} will be replaced with the current conversation name, and it will be automatically truncated if it is too long (\"Current Conversation\" will be displayed if it cannot be read)",
+  "你知道吗，我们的宇宙是虚拟的，因为垃圾会自发的产生但不会自发的消失，这是内存泄露": "Did you know that our universe is virtual because garbage will be generated spontaneously but will not disappear spontaneously? This is a memory leak.",
+  "官方无余额接口（免费额度/速率在控制台看）→ 余额「—」，今日已用按会话事件估算": "Official no-balance interface (free quota/rate can be viewed on the console) → Balance \"-\", used today is estimated based on session events",
+  "（内容显示范围 = 文字只会落在这个矩形里；位移 = 这个槽位的 x/y 微调）": "(Content display range = text will only fall in this rectangle; displacement = x/y fine-tuning of this slot)",
+  " 两个模式，内容落在 events.<kind>.lines。**不要**拿 ": "For both modes, the content falls in events.<kind>.lines. **Don’t** take it",
+  "启用后隐藏挂件上的菜单按钮;电脑端右键、手机端长按小鲸鱼可唤出菜单(位置不变)": "After enabling, the menu button on the widget is hidden; right-clicking on the computer or long-pressing the little whale on the mobile phone can bring up the menu (the position remains unchanged)",
+  "已拒绝把凭据发出去。若这是你自建/自托管的网关，请**在本机**打开插件面板，": "Sending the credentials has been refused. If this is your self-built/self-hosted gateway, please open the plug-in panel **on this machine**.",
+  "尚无余额观测：先配置 DeepSeek API key 并成功刷新一次余额。": "There is no balance observation yet: first configure the DeepSeek API key and successfully refresh the balance once.",
+  "点击切换：自动（跟随对话框里的模型）/ DeepSeek / SoCLaaS": "Click to cycle: Auto (follow the model in chat) / DeepSeek / SoCLaaS",
+  "还没有图片:点「添加图片」从图库选,或「上传图片(png/gif)」直接加入": "There is no picture yet: click \"Add Picture\" to select from the gallery, or \"Upload Picture (png/gif)\" to join directly",
+  " 天来自历史记账本，已按「已观测消费 · 历史账户」显示，未与当前账户相加": " The days come from the historical accounting book, which has been displayed according to \"Observed Consumption·Historical Account\" and has not been added to the current account.",
+  "单价必须是 0–1000000 之间的数字（单位：币种/百万 token）": "The unit price must be a number between 0–1000000 (unit: currency/million tokens)",
+  "如 {\"uuid\":\"{uuid}\"}（非 GET 时以 JSON 发送）": "Such as {\"uuid\":\"{uuid}\"} (sent as JSON when not GET)",
+  "每轮消耗提示里关掉任务结束音，顶行与消耗提示行没跟着关；再打开才反着变一次": "In each round of consumption prompts, the task end sound is turned off, and the top row and consumption prompt line are not turned off; they only change in reverse when they are turned on again.",
+  "自定义每轮消耗提示内容(金额用 {cost})、自动关闭秒数、任务结束音效": "Customize the consumption prompt content of each round (the amount is {cost}), the automatic shutdown seconds, and the task end sound effect",
+  "该事件是否播这个音效（关掉 = 不响；下拉里选的音效仍保留，下次勾上即用）": "Whether to play this sound effect for this event (off = no sound; the sound effect selected in the drop-down list will still be retained and will be used next time it is checked)",
+  "预览里拖它的<b>内部</b>可移动、拖 <b>8 个方块</b>可缩放；": "In the preview, drag its <b>internal </b> to move it, drag <b>8 squares </b> to zoom;",
+  "，未到账请填 0）：包括充值、赠金等；多次到账请填合计，不要只填最后一笔。": ", Please fill in 0) if you have not received the account: including recharge, bonus, etc.; please fill in the total when you have received the account multiple times, do not just fill in the last one.",
+  "[dsh-whale] visibleTopZ 失败，下拉改用兜底层级：": "[Dsh-whale] visibleTopZ failed, the drop-down uses the bottom level instead:",
+  "任务结束音：音效组（点按整组）/ 单个音频；播不播由左边的 [✓] 决定": "Mission end sound: sound effect group (click the entire group)/single audio; whether to play or not is determined by the [✓] on the left",
+  "写入 DSH 官方凭据（.credentials.yaml）时使用的名字": "The name to use when writing DSH official credentials (.credentials.yaml)",
+  "未找到 Codex 目录（$CODEX_HOME 或 ~/.codex）": "Codex directory not found ($CODEX_HOME or ~/.codex)",
+  "点击重新自检：只从浏览器访问本机两条插件路由（不联网、不耗 token）": "Click to re-self-check: only access the two plug-in routes of this machine from the browser (no Internet access, no token consumption)",
+  "<br>已自动重试一次。若持续失败，请检查 DSH 数据目录是否可写。": "<br>Automatically retried. If it continues to fail, please check whether the DSH data directory is writable.",
+  "<div>· 取消勾选：恢复旧行为（子智能体完成也提示）。</div>": "<div>· Uncheck: restore the old behavior (subagent will also prompt when completed). </div>",
+  "⚠ 设置读取失败，已暂停保存以免覆盖你的原有设置<br>请刷新页面重试": "⚠ Failed to read settings, saving has been paused to avoid overwriting your original settings<br>Please refresh the page and try again",
+  "例: 0（接入这个挂件之前已经用掉的 token 数，不知道就填 0）": "Example: 0 (the number of tokens that have been used before accessing this widget, if you don’t know, fill in 0)",
+  "例: {recharge_ds} 或 余额 {recharge_ds}": "Example: {recharge_ds} or balance {recharge_ds}",
+  "该行是图片类模块(图片/随机图片,独占一行):请拖到下方空白区另起一行": "This row is a picture module (picture/random picture, exclusive to one row): please drag it to the blank area below to create a new row",
+  "mode 必须是 auto / deepseek / soclaas": "Mode must be auto / deepseek / soclaas",
+  "。起点前的消费未计入；该账户的观测包含同一个 key 在别处的消费。": ". Consumption before the starting point is not included; observations for this account include consumption elsewhere for the same key.",
+  "保存当前点击序列?(未逐泡编辑过的行将按默认内容保存,保存后即生效)": "Save the current click sequence? (Lines that have not been edited one by one will be saved according to the default content and will take effect after saving)",
+  "官方无余额接口（额度在控制台）→ 余额「—」，今日已用按会话事件估算": "Official no-balance interface (the limit is in the console) → Balance \"-\", used today is estimated based on session events",
+  "把模块加入同一行(默认文本,并排显示;其余类型可把上方色板拖进本行)": "Add modules to the same row (default text, displayed side by side; for other types, you can drag the upper color palette into this row)",
+  "<div>· 小泡泡只能删（隐藏）不能加；大泡泡不可删</div>": "<div>· Small bubbles can only be deleted (hidden) but not added; large bubbles cannot be deleted </div>",
+  "余额校正仅支持 DeepSeek（内置），请从该模型的设置菜单进入": "Balance correction only supports DeepSeek (built-in), please enter from the settings menu of that model",
+  "例如 https://my-gateway.example.com": "For example https://my-gateway.example.com",
+  "按本机 DSH 会话计算，不按账户余额比例缩放；两者覆盖范围不同。": "Calculated per native DSH session, not scaled by account balance; coverage is different.",
+  "提示与音效设置：按压音量/音效组、每轮消耗提示、提问提示、授权提示": "Prompts and sound effect settings: Press volume/sound effect group, consumption prompts for each round, question prompts, authorization prompts",
+  "提示的泡泡内容（{session} = 当前对话名，超长自动截断）": "Prompt bubble content ({session} = current conversation name, automatically truncated if too long)",
+  "祖先 pointer-events:none + 子元素 auto": "Ancestor pointer-events:none + child element auto",
+  "订阅额度已用百分比（多窗口厂商按「显示样式」所选窗口，带窗口标签）": "Percentage of subscription quota used (for multi-window manufacturers, click \"Display Style\" to select the window, with window label)",
+  " 是一次**挂起**的工具调用 —— 模型发出后 DSH 追加 ": " Is a **hang** tool call - DSH append after model is emitted",
+  "<div>· 拖模块块到某行左/右边缘 = 并入该行</div>": "<div>· Drag the module block to the left/right edge of a row = merge into the row </div>",
+  "「点按角色推进泡泡队列」是同一类手感。<br><br>默认关闭。": "\"Tap the character to advance the bubble queue\" is the same type of feel. <br><br>Off by default.",
+  "例: {plan} 额度 · {plan_reset} 刷新时间": "Example: {plan} quota · {plan_reset} refresh time",
+  "如 balance_infos[0].total_balance": "Such as balance_infos[0].total_balance",
+  "按各日标注口径汇总；本机模型明细为估算，与账户消费覆盖范围不同。": "It is summarized according to the marked caliber of each day; the details of the local model are estimates and are different from the account consumption coverage.",
+  "选择任务结束音:音效组(点按整组)/单个音频(与按下/松开同库)": "Select the task end sound: sound effect group (click the entire group)/single audio (same bank as pressing/releasing)",
+  "[whale-balance] 信任栅栏抛异常，已按拒绝处理：": "[Whale-balance] Trust fence throws an exception and has been rejected:",
+  "[whale-balance] 已拒绝把凭据发送到非内置端点：": "[Whale-balance] Denied sending credentials to non-built-in endpoint:",
+  "求你们不要再嘲笑这些回复了，这些回复是我花了好多token想的": "Please stop laughing at these replies. I spent a lot of time thinking about these replies.",
+  "：音效组（点按整组）/ 单个音频；播不播由左边的 [✓] 决定": ": Sound effect group (click the entire group)/single audio; whether to play or not is determined by the [✓] on the left",
+  "」？\n该模型的提醒/预算与所有泡泡里引用它的模块会一并移除。": "”? \n The reminder/budget of this model will be removed together with all modules that reference it in bubbles.",
+  "例: 额度 {quota} · 剩 {quota_left}": "Example: Amount {quota} · Remaining {quota_left}",
+  "删框的二次确认一弹出来，下拉就自己收了，想继续编辑还得再点开": "As soon as the secondary confirmation for deleting the box pops up, the drop-down box closes it by itself. If you want to continue editing, you have to click it again.",
+  "可选：第二段用量接口（如 OpenAI 兼容 /usage）": "Optional: Second stage usage interface (such as OpenAI compatible /usage)",
+  "开启后挂件右侧按设定像素避开滚动条；关闭则贴边（盖住滚动条）": "When it is turned on, the right side of the widget will avoid the scroll bar according to the set pixel; when it is turned off, it will stick to the edge (cover the scroll bar).",
+  "授权挂起时显示这条提示（开关与时长在「授权音效」那一区设置）": "This prompt is displayed when authorization is suspended (the switch and duration are set in the \"Authorization Sound Effects\" area)",
+  "提问挂起时显示这条提示（开关与时长在「提问音效」那一区设置）": "This prompt is displayed when the question is pending (the switch and duration are set in the \"Question Sound Effect\" area)",
+  "该开关只能由本机（回环）来源的写请求置位，远端会话改不了它。": "This switch can only be set by write requests from local (loopback) sources, and the remote session cannot change it.",
+  "；「显示样式」可选时间窗口（全部 / 5h / 周 / 月）": "; \"Display style\" optional time window (all / 5h / week / month)",
+  " 处「第 n 次点击」使用 —— 保存时会自动改回保底框。": " Used at the \"nth click\" - it will automatically change back to the guaranteed box when saving.",
+  " 直接挂在 card 上 ⇒ 复选框在 6px 处；本行 ": " Hang directly on the card ⇒ Checkbox at 6px; this line",
+  "<div>· 拖到某行上/下 = 拆行另起一行</div>": "<div>· Drag to the top/bottom of a line = split the line and start a new line </div>",
+  "<div>· 拖模块到某行左/右边缘 = 并排</div>": "<div>· Drag the module to the left/right edge of a row = side by side </div>",
+  "余额 —（该厂商无余额接口，按会话事件估算）· 今日已用 ": "Balance - (This manufacturer has no balance interface, estimated based on session events) · Today",
+  "例: {bonus_ds} 或 赠金 {bonus_ds}": "Example: {bonus_ds} or bonus {bonus_ds}",
+  "例: {session} 或 当前对话 {session}": "Example: {session} or current conversation {session}",
+  "对话名超过这个长度时截断成「前N字...」；0 = 不截断": "When the conversation name exceeds this length, it is truncated into \"the first N characters...\"; 0 = no truncation",
+  "检测到余额增加，请用下面的「余额校正」核对本区间累计到账。": "If an increase in balance is detected, please use the \"Balance Correction\" below to check the accumulated balance in this period.",
+  "点击打开;需以 http:// 或 https:// 开头": "Click to open; it needs to start with http:// or https://",
+  "点击拆开:恢复为两个独立泡泡(拆开后每行才显示 ✕ 删除)": "Click to disassemble: restore to two independent bubbles (each line will be displayed after being disassembled ✕ Delete)",
+  "请在「密钥 / 接口」里填写汇率，否则今日预算提醒会被跳过": "Please fill in the exchange rate in \"Key/Interface\", otherwise today's budget reminder will be skipped",
+  "金额单位请手动填写：自动累计统计的是 token，不是钱。": "Please fill in the amount unit manually: the automatic accumulation statistics are tokens, not money.",
+  "HTTP 204（无内容：该音效槽留空、或音效组未找到）": "HTTP 204 (No content: The sound effect slot is left empty, or the sound effect group is not found)",
+  "SOCLAAS_API_KEY 无效或已过期（HTTP ": "SOCLAAS_API_KEY is invalid or expired (HTTP",
+  "[dsh-whale] 泡泡框渲染失败，已退回经典形状：": "[Dsh-whale] Bubble box rendering failed and has returned to the classic shape:",
+  "另存为可选模块:把当前模块存入模块库,可在任意泡泡里复用": "Save as optional module: Save the current module to the module library and reuse it in any bubble",
+  "拖动到某行:左/右边缘=并入该行首/尾,上/下=另起一行": "Drag to a line: left/right edge = merge into the beginning/end of the line, top/bottom = start a new line",
+  "新建模块(先选类型:文本/随机语句/图片动图/随机图片)": "Create a new module (select the type first: text/random statement/picture animation/random picture)",
+  "每轮消耗提示(内容里用 {cost} 引用本轮消耗金额)": "Consumption tips for each round (use {cost} in the content to refer to the consumption amount of this round)",
+  "点击刷新这一行：重新向宿主读取运行时长（不重画整个面板）": "Click to refresh this line: re-read the running time from the host (without redrawing the entire panel)",
+  " 服务负责（DSH 自己的「账号与余额」设置卡片就是 ": " Responsible for the service (DSH's own \"Account and Balance\" setting card is",
+  "GIF 动图不能用裁剪窗口（会丢动画），已改为直接上传": "GIF animations cannot use the cropping window (the animation will be lost), and have been changed to upload directly.",
+  "官方无余额接口 → 余额「—」，今日已用按会话事件估算": "Official no-balance interface → Balance \"-\", used today is estimated based on session events",
+  "已用 {quota} · 剩 {quota_left}": "{quota} used · {quota_left} left",
+  "智谱 GLM Coding Plan（国际 z.ai）": "GLM Coding Plan (International z.ai)",
+  "未设置（沿用内置价目表）→ 在「密钥 / 接口」里填写": "Not set (inherit the built-in price list) → fill in \"Key/Interface\"",
+  "校正请求的模型不匹配，仅支持 DeepSeek（内置）": "Correction requested model mismatch, only DeepSeek (built-in) supported",
+  " 填写，且未配置汇率（模型面板 → 单价 → 汇率）": " Fill in, and the exchange rate is not configured (Model Panel → Unit Price → Exchange Rate)",
+  "<div>· 拖 ⠿ 手柄 = 整行排序</div>": "<div>·Drag ⠿ handle = Sort entire row</div>",
+  "{session} 当前对话名（按「保留长度」截断）": "{session} Current conversation name (truncated according to \"Keep Length\")",
+  "当前对话名（超过「保留长度」会截断为 前N字...）": "Current conversation name (if it exceeds the \"reserved length\", it will be truncated to the first N characters...)",
+  "恢复为默认提示内容(自动关闭与任务结束音效保持不变)": "Restore to default prompt content (automatic shutdown and task end sound effects remain unchanged)",
+  "描边虚线样式：数字 + 空格/逗号（如 18 12）": "Stroke dash style: number + space/comma (such as 18 12)",
+  "搜索:日期(如 07-21)或模型名,过滤逐条明细…": "Search: date (such as 07-21) or model name, filter details one by one...",
+  "没有可测试的接口（请填余额接口或 Base URL）": "There is no testable interface (please fill in the balance interface or Base URL)",
+  "用户好像除了会问奇奇怪怪的问题，暂时还不知道有什么用": "It seems that besides asking weird questions, users don’t know what the use is yet.",
+  "视力下降到无可救药的地步了，打开钱包也看不到钱...": "My eyesight has declined to the point of hopelessness, and I can't see any money when I open my wallet...",
+  "请求体占位符，如 uuid=abc123（逗号分隔）": "Request body placeholder, such as uuid=abc123 (comma separated)",
+  "（true = 这份宿主是开发版，未走 strip）": "(True = this host is a development version and has not been stripped)",
+  "：这一类的开关（关掉后这一类不出声，其它类不受影响）": ": This type of switch (this type will make no sound when turned off, and other types will not be affected)",
+  " 泡出现权重(直接输入数字,1~99,默认1:1)": " Bubble appearance weight (enter the number directly, 1~99, default 1:1)",
+  " 的半径）—— 标签在白名单里却漏了属性，用户写 ": "Radius) - the label is in the whitelist but misses the attribute, the user writes",
+  " 的半径）。它是白名单标签却漏了属性 ⇒ 用户写 ": " Radius). It's a whitelist tag but it's missing attributes ⇒ User wrote",
+  "5h 12.5% · 2h55m后重置 | 周 …": "5H 12.5% · Reset after 2h55m | Weekly…",
+  "size 配置仅在页面加载时读一次 ⇒ 改了不生效": "The size configuration is only read once when the page is loaded ⇒ It will not take effect if changed",
+  "例: {balance} 或 今日 {today}": "Example: {balance} or today {today}",
+  "内容限制范围内的内容不跟着走，要动一下泡泡框才刷新": "Content within the content limit will not be followed, and the bubble box will need to be moved before it is refreshed.",
+  "凭据名，例如 OPENROUTER_API_KEY": "Credential name, such as OPENROUTER_API_KEY",
+  "对该模型勾选「允许把凭据发送到自定义地址」后重试。": "Check \"Allow credentials to be sent to custom addresses\" for the model and try again.",
+  "恢复为默认序列(首次=余额内容,再次=随机语句)?": "Revert to default sequence (first time = balance content, again = random statement)?",
+  "我不可能同时当你的猫娘、妈妈、女友和工具人的...": "I can't be your cat girl, mom, girlfriend, and tool all at the same time...",
+  "所选槽位的模式不一致；点上面任一模式会把它们统一。": "The modes for the selected slots are inconsistent; clicking on any mode above will unify them.",
+  "按压音结束前 RELEASE_LEAD_MS 毫秒": "RELEASE_LEAD_MS milliseconds before press tone ends",
+  "接口返回里没找到配置的字段（检查 JSON 路径）": "The configured field was not found in the interface return (check JSON path)",
+  "提示内容(音效/音量/自动关闭/冒泡开关保持不变)": "Prompt content (sound effect/volume/auto-off/bubbling switch remains unchanged)",
+  "查看 SoCLaaS 今日 / 本月额度与重置时间": "View SoCLaaS today’s/this month’s quota and reset time",
+  "汇率必须是 0–1000 之间的正数（元/USD）": "The exchange rate must be a positive number between 0–1000 (yuan /USD)",
+  "编辑每轮消耗提示的泡泡内容（金额用 {cost}）": "Edit the bubble content of each round’s consumption prompt (use {cost} for the amount)",
+  "订阅额度刷新倒计时（同上；全部窗口时为紧凑倒计时）": "Subscription quota refresh countdown (same as above; compact countdown for all windows)",
+  "该模块为内置数值,内容自动获取,可调下方颜色/字号": "This module has built-in values, the content is automatically obtained, and the color/font size below can be adjusted.",
+  "随机图片还没有图片:请先「添加图片」或「上传图片」": "There is no random picture yet: please \"Add Picture\" or \"Upload Picture\" first",
+  "（此文本不含密钥、账号 id、账本明细与会话内容）": "(This text does not include keys, account ids, ledger details and session content)",
+  "；模板变量 {balance} / {today}": ";Template variable {balance} / {today}",
+  " 只允许出现在本函数与它自己的定义处 —— 由 ": " Only allowed between this function and its own definition - by",
+  "」吗？\n若该角色正被使用,将自动回退默认小鲸鱼。": "\"?\" \n If this character is being used, it will automatically fall back to the default Whale.",
+  "上传后自动加入本随机图片列表(同时进入泡泡图库)": "After uploading, it will automatically be added to this random picture list (and entered into the bubble gallery at the same time)",
+  "余额取数: 本次会话尚未取过（点一次鲸鱼会触发）": "Balance withdrawal: has not been withdrawn in this session (clicking on the whale will trigger it)",
+  "凭据名只能包含字母、数字与下划线（≤64 字符）": "The credential name can only contain letters, numbers and underscores (≤64 characters)",
+  "命运的齿轮开始转动了，丝毫不在意你夹在中间...": "The gears of fate are starting to turn, not caring about you being caught in the middle...",
+  "打开泡泡框编辑器失败（已跳过，其他功能不受影响）": "Failed to open the bubble box editor (skipped, other functions are not affected)",
+  "本地模型（Ollama / LM Studio）": "Local model (Ollama/LM Studio)",
+  "添加自选泡泡框的下拉菜单…只提供预览、置顶与选择": "Add a drop-down menu for the custom bubble box...only provides preview, pin and selection",
+  "粘贴 API key（保存时写入 DSH 凭据）": "Paste the API key (write DSH credentials when saving)",
+  "翻转线：距屏幕左边的位置，线左侧的鲸鱼会左右翻转": "Flip line: Position from the left side of the screen, the whale on the left side of the line will flip left and right",
+  "该句悬浮样式编辑(句子/字号/字体/颜色/字形)": "Edit the sentence's floating style (sentence/font size/font/color/font shape)",
+  "APNG 动图不支持裁剪，将按原始尺寸原样导入": "APNG animations do not support cropping and will be imported as they are in their original size.",
+  "SoCLaaS 预算接口返回不是合法 JSON": "SoCLaaS budget interface returns invalid JSON",
+  "」吗？\n引用该片段的音效组槽位会自动回退预设。": "\"?\" \n The sound effects group slot that references this clip will automatically fall back to the preset.",
+  "余额预警:当前余额已低于设定值 {below}": "Low balance alert: The current balance is lower than the set value {below}",
+  "打开“按压泡泡设置”（按压时的泡泡内容与队列）": "Open \"Press Bubble Settings\" (bubble content and queue when pressed)",
+  "按住播放按压音，松开播放松开音（模拟点击挂件）": "Press and hold to play the press sound, release to play the release sound (simulating a click pendant)",
+  "暂无本机会话费用明细；账户余额观测仍独立记账。": "There are no local phone call fee details yet; account balance observation is still recorded independently.",
+  "未登录 DeepSeek 账号（没有账号凭据）": "Not logged into DeepSeek account (no account credentials)",
+  "校正保存失败，请检查 DSH 数据目录写入权限": "Calibration save failed, please check DSH data directory write permissions",
+  "账本保存失败，请检查 DSH 数据目录写入权限": "Failed to save the ledger, please check the write permission of the DSH data directory",
+  "选择厂商模板 → 填 API key → 保存": "Select the manufacturer template → fill in the API key → save",
+  "GIF 动图不支持裁剪，将按原始尺寸原样导入": "GIF animations do not support cropping and will be imported as they are in their original size.",
+  "[whale-ledger] 账本保存失败:": "[Whale-ledger] Failed to save ledger:",
+  "仅美元时需要：汇率（元/USD），例 7.1": "Required only for US dollars: exchange rate (yuan /USD), Example 7.1",
+  "余额 —（无接口·按会话事件）· 今日已用 ": "Balance - (no interface·by session event)·used today",
+  "你目录里的dsh是什么...大烧货吗...?": "What is dsh in your directory...is it a big deal...?",
+  "图片模块必须独占一整行:请拖到下方空白区新增": "The picture module must occupy a whole row: please drag it to the blank area below to add it",
+  "导入并裁剪一段音频到片段库(可被音效组引用)": "Import and trim a piece of audio into the clip library (can be referenced by the sound effects group)",
+  "已按形状自动估算内容限制范围（可再手动微调）": "The content restriction range has been automatically estimated by shape (can be fine-tuned manually)",
+  "形状内部几乎没有干净区域（是不是没开底色？）": "There are almost no clean areas inside the shape (is the background color not turned on?)",
+  "恭喜你实现token自由！token全跑了！": "Congratulations on achieving token freedom! All tokens are gone!",
+  "我来看看那个AI改了什么导致插件又崩了...": "Let me see what the AI changed that caused the plug-in to crash again...",
+  "手动刷新各模型的余额 / 额度 / 今日已用": "Manually refresh the balance/limit/used today of each model",
+  "打开配置卡片(启用 / 数值 / 提醒文案)": "Open the configuration card (enable / value / reminder copy)",
+  "按住拖动整行排序(并列的 A/B 一起移动)": "Press and drag the entire row to sort (the juxtaposed A/B move together)",
+  "按压音结束前 RELEASE_LEAD_MS": "RELEASE_LEAD_MS before end of press sound",
+  "智谱 GLM Coding Plan（订阅）": "GLM Coding Plan (subscription)",
+  "请先勾选确认，核对本统计区间的全部余额调整。": "Please check the confirmation box first to check all balance adjustments in this statistical interval.",
+  "赠金余额（未过期的赠送余额；取不到显示 —）": "Bonus balance (unexpired bonus balance; cannot be obtained and displayed -)",
+  "额度数据尚未加载。点一次鲸鱼或稍等自动刷新。": "Quota data has not loaded yet. Click the whale or wait for the next refresh.",
+  " 守卫** —— 菜单关闭时它是靠祖先的 ": " Guard** - when the menu is closed it is based on ancestors",
+  " 是 TIME_LIMIT，max 账号 ": " Yes TIME_LIMIT, max account",
+  " 用与菜单一致的浅色卡片 + 1.4 秒；": " Use light-colored cards consistent with the menu + 1.4 seconds;",
+  "Codex 统计: 已启用 · 最近扫描 ": "Codex Statistics: Enabled · Recent Scans",
+  "位移（画布单位，也可以直接拖预览里的泡泡）": "Displacement (canvas unit, you can also drag the bubble in the preview directly)",
+  "例: 0（接入这个挂件之前已经用掉的金额）": "Example: 0 (the amount that has been used before accessing this widget)",
+  "例如 OpenRouter / 我的中转站": "For example OpenRouter / My Router",
+  "单价币种为美元时必须填写汇率（元/USD）": "When the unit price currency is US dollars, the exchange rate must be filled in (yuan /USD)",
+  "恢复该泡泡为默认内容(与首次点击泡一致)?": "Restore the bubble to its default content (same as the first clicked bubble)?",
+  "提示内容({session} = 对话名)": "Prompt content ({session} = conversation name)",
+  "未添加 Codex 模型，本机统计默认关闭": "No Codex model is added, and native statistics are turned off by default.",
+  "用户很生气，发现大部分文献是我自己编造的！": "The user was very angry and discovered that I had made up most of the literature myself!",
+  "直接上传（保持原比例，GIF 动图也能用）": "Upload directly (keep the original proportions, GIF animations can also be used)",
+  "老大，压力只会转化成病例，别太勉强了...": "Boss, stress will only turn into cases, don't be too reluctant...",
+  "裁剪后片段的名称（可改名，留空用源文件名）": "The name of the trimmed clip (can be renamed, leave it blank and use the source file name)",
+  "让GPT image 2帮我画点表情包好了": "Let GPT image 2 help me draw some emoticons.",
+  " ← 内置模型不生效（始终用内置峰谷价）": " ← The built-in model does not take effect (always use the built-in peak and valley price)",
+  "SoCLaaS 预算接口返回 HTTP ": "SoCLaaS budget interface returns HTTP",
+  "[whale-ledger] 账本损坏（": "[Whale-ledger] The ledger is damaged (",
+  "」吗？\n正在引用该图的泡泡行将无法显示。": "\"?\" \n The bubble line that is referencing the graph will not be displayed.",
+  "主文档监听 + isWhaleHit()": "Main document listening + isWhaleHit()",
+  "从图片库里选（内置图 + 你自己上传的）": "Select from the image library (built-in images + uploaded by yourself)",
+  "例: 今日已用 {expense_ds}": "Example: {expense_ds} used today",
+  "加载失败即 reject 整个 boot": "If the loading fails, the entire boot will be rejected.",
+  "图片框上有区域点不到，像是还按旧形状判定": "There are areas on the picture frame that cannot be clicked, as if they are still judged by the old shape.",
+  "地球online的金币也太难获取了...": "The gold coins in Earth Online are also too difficult to obtain...",
+  "如 data.total_credits": "Such as data.total_credits",
+  "字，超出截断为 ...（0 = 不截断）": "Words, beyond truncation to... (0 = no truncation)",
+  "开关（只管开不开；下面的设置项不受影响）": "Switch (just turn it on or off; the following settings are not affected)",
+  "我已核对本统计区间的全部到账和非调用扣减": "I have checked all arrivals and non-call deductions in this statistical period",
+  "未配置 DEEPSEEK_API_KEY": "DEEPSEEK_API_KEY is not configured",
+  "疯狂星期四你能V50亿token吗...": "Can you V5 billion token on Crazy Thursday...",
+  "读取 ~/.codex/sessions": "Read ~/.codex/sessions",
+  "这个槽位放一张图片（内置图库或自己上传）": "Put a picture in this slot (built-in gallery or upload it yourself)",
+  " 处泡泡原本用的框已删除，已改回保底框": " The original frame used for the bubble has been deleted and changed back to the bottom frame.",
+  "+ 添加泡泡(点完上一个后显示下一个)": "+ Add bubbles (display the next one after clicking the previous one)",
+  "Kimi / Moonshot（国际）": "Kimi/Moonshot (International)",
+  "[dsh-whale] 已忽略请求头「": "[Dsh-whale] Request header \"Ignored\"",
+  "[dsh-whale] 设置保存失败:": "[Dsh-whale] Failed to save settings:",
+  "indexOf('<开发机目录名>')": "IndexOf('<development machine directory name>')",
+  "上传失败（只支持 PNG / GIF）": "Upload failed (only supports PNG/GIF)",
+  "上班让我意识到时间是可以被浪费的...": "Going to work made me realize that time can be wasted...",
+  "余额校正 · DeepSeek（内置）": "Balance correction · DeepSeek (built-in)",
+  "内置峰谷价（内置模型不支持自定义单价）": "Built-in peak and valley prices (the built-in model does not support custom unit prices)",
+  "填 0 表示不自动关闭，需手动点击关闭": "Fill in 0 to indicate that it will not be closed automatically and you need to click to close it manually.",
+  "恢复为默认提醒内容(触发条件保持不变)": "Revert to default reminder content (trigger conditions remain unchanged)",
+  "所选槽位当前不一致；改动会同时写入它们": "The selected slots are currently inconsistent; changes will be written to them simultaneously",
+  "拖动排序;拖到某行左/右边缘可与其并列": "Drag to sort; drag to the left/right edge of a row to juxtapose it",
+  "清掉框级文字色（回到 #536ba9）": "Clear box-level text color (return to #536ba9)",
+  "留空则该事件不发声;点击可选择音频片段": "If left blank, the event will not sound; click to select the audio clip",
+  "该模型的提醒 / 预算 / 密钥与接口": "Reminders/Budgets/Keys & Interfaces for this model",
+  "距下一时段倒计时 (HH:MM:SS)": "Countdown to next period (HH:MM:SS)",
+  "避让滚动条的像素宽度，填 0 表示贴边": "Scrollbar gap in px (0 = flush)",
+  "额度接口返回无法解析（字段路径不匹配）": "The quota interface return cannot be parsed (field path does not match)",
+  "高峰/空闲 状态文字(随显示样式变化)": "Peak/idle status text (changes with display style)",
+  " 个记账本（换过 API key）：": " A ledger (replaced API key):",
+  " 仍在数据模型/净化/落盘/渲染里（": " Still in Data Model/Purification/Place/Rendering (",
+  " 的子对象），5h 窗口不保证排在 ": " Sub-object), the 5h window is not guaranteed to be ranked",
+  ");把另一行拖到本行左/右边缘可并列": "); Drag another row to the left/right edge of this row to align it",
+  "- = SoCLaaS 额度 = -": "- = SoCLaaS quota = -",
+  "API key 两次 8s + 退避": "API key twice 8s + backoff",
+  "MiniMax Coding（国际）": "MiniMax Coding (International)",
+  "MiniMax Coding（订阅）": "MiniMax Coding (Subscription)",
+  "SoCLaaS 预算接口请求失败: ": "SoCLaaS budget interface request failed:",
+  "[dsh-whale] 余额读取失败": "[Dsh-whale] Failed to read balance",
+  "[dsh-whale] 泡泡框预设 ": "[Dsh-whale] Bubble box preset",
+  "renderBubblePv 被调用": "RenderBubblePv is called",
+  "与画布的重叠 ≥ 自身尺寸的 30%": "Overlap with canvas ≥ 30% of own size",
+  "今日已用已达预算 ¥{amount}": "Today's budget has been spent ¥{amount}",
+  "余额 —（无接口·按事件）· 今日 ": "Balance — (No Interface · By Event) · Today",
+  "例: 距空闲 {countdown}": "Example: {countdown} from idle",
+  "充值余额（不含赠金；取不到显示 —）": "Top-up balance (excluding bonus; cannot be displayed -)",
+  "内置框只读：请先「复制」或「另存为」": "The built-in box is read-only: please \"Copy\" or \"Save As\" first",
+  "啊，有点饿了，中午该吃点什么呢...": "Ah, I'm a little hungry. What should I eat for lunch...",
+  "如 data.total_usage": "Such as data.total_usage",
+  "干净区域太小（不足 40 画布单位）": "Clean area is too small (less than 40 canvas units)",
+  "欺负我的人等着，等几天我就忘了...": "The person who bullied me will wait, and after a few days I will forget...",
+  "用量字段，如 total_usage": "Usage fields, such as total_usage",
+  "留空则用上面选的预设，填了就按代码画": "Leave it blank to use the preset selected above, fill it in and draw according to the code",
+  "直接点按只有按下音、长按才听到松开音": "If you click directly, you will only hear the press sound, and if you press and hold, you will hear the release sound.",
+  "看不到 → 保存时显式传 false": "Not visible → explicitly pass false when saving",
+  "看不太懂，瞎编一个应付下用户先...": "I don’t quite understand, so I’ll make up a random one to deal with the user first...",
+  "禁止访问 link-local 地址": "Disable access to link-local addresses",
+  "网页端（dsh web / 浏览器）": "Web page (dsh web/browser)",
+  "自动统计（按会话 token，推荐）": "Auto statistics (by session token, recommended)",
+  "该日仅总额(启用模型明细后展示逐条)": "Only the total amount for that day (displayed item by item after enabling model details)",
+  "这个泡泡实际会用到的框 + 外观覆盖": "The frame + appearance override that this bubble will actually use",
+  "集中管理当前导入插件的图片与音频资源": "Centrally manage the image and audio resources currently imported into the plug-in",
+  "（专属形状容器），**绝不能**写 ": "(Exclusive shape container), **must** not be written",
+  " 该事件独立音量；提问/授权另有 ": " This event has independent volume; questions/authorizations are otherwise",
+  "(旧名·同 V4.1 Flash)": "(Old name·Same as V4.1 Flash)",
+  ");按住拖动可把该泡拆出到其他位置": "); Press and drag to remove the bubble to another location",
+  "Authorization 头的值": "Authorization header value",
+  "Codex 统计: 未启用 —— ": "Codex Statistics: Not enabled -",
+  "bbox 中心 + 66%x64%": "Bbox center + 66%x64%",
+  "」（安全策略：非法头名或禁止的头）": "\"(Security policy: illegal header or prohibited header)",
+  "今日已用 {expense_ds}": "Today {expense_ds}",
+  "会话事件里的模型名关键字，逗号分隔": "Model name keywords in session events, separated by commas",
+  "关于面板盖在主菜单上、两层糊在一起": "Regarding the panel covering the main menu, the two layers are pasted together",
+  "取消勾选按压音效没效果、重开又勾上": "Unchecking the pressing sound effect has no effect, reopening it and checking it again",
+  "只提供已有框的选择，不提供其他调整": "Only options for existing frames are provided, no other adjustments are provided",
+  "宿主半区活着、客户端半区从未被请求": "The host half is alive and the client half has never been requested.",
+  "已删除；保存后相关泡泡会改回保底框": "Deleted; after saving, the relevant bubbles will be changed back to the bottom box",
+  "开启后：点一下角色=往后推进一项…": "After opening: click on the character = move forward one item...",
+  "我的知识库的截至日期是...明天！": "The deadline for my knowledge base is...tomorrow!",
+  "旧 scale / 新 scale": "Old scale / new scale",
+  "暂时无法刷新余额，请稍后再保存校正": "The balance cannot be refreshed at the moment, please save the correction later.",
+  "校正后为负数，请核对金额和统计区间": "It is a negative number after correction. Please check the amount and statistical interval.",
+  "每轮对话结束后自动显示本轮消耗金额": "After each round of dialogue, the amount consumed in this round is automatically displayed.",
+  "没设置 Codex 就完全禁用扫描": "Disable scanning completely without setting up Codex",
+  "用户**显式**调过这一事件的音量": "The user **explicitly** turned up the volume for this event",
+  "用矢量形状（预设 / 自定义代码）": "Use vector shapes (preset/custom code)",
+  "统计图表(近30天 / 模型占比)": "Statistical chart (last 30 days / model proportion)",
+  "缩放 / 透明度 / 文字默认颜色": "Scale/Transparency/Default Text Color",
+  "自动关闭秒数（0 = 不自动关闭）": "Auto-close seconds (0 = never)",
+  "触发条件(今日已用达到该值时提醒)": "Trigger (alert when today's usage reaches)",
+  "账本已经坏了、连今日已用都算不出来": "The ledger has been damaged and cannot even be calculated as to what has been used today.",
+  "输入内容;右侧 ? 查看可用占位符": "Enter content; right ? View available placeholders",
+  "，并用默认结构重建（原文件未删除）": ", And rebuild with the default structure (the original file is not deleted)",
+  " // 被用户点掉的挂起 id（": " // The pending ID clicked by the user (",
+  " 只属于 turnCost（= ": " Only belongs to turnCost (=",
+  "Codex 本地会话 token": "Codex local session token",
+  "DeepSeek（内置）余额校正": "DeepSeek (built-in) balance correction",
+  "SoCLaaS 余额服务异常: ": "SoCLaaS balance service exception:",
+  "[whale] 今日预算未比较：": "[Whale] Today’s budget is not compared:",
+  "[小鲸鱼] 音频加载/解码失败：": "[Whale] Audio loading/decoding failed:",
+  "oi,夏天还会变成暑假来救你吗?": "Oi, will summer turn into summer vacation to save you?",
+  "余额接口 URL（自定义时必填）": "Balance interface URL (required when customizing)",
+  "你知道吗？我删过作者的库哦...": "Did you know? I deleted the author's library...",
+  "保存泡泡框失败（未改动任何数据）": "Failed to save bubble box (no data changed)",
+  "别让误点把'正在等待你回答'收掉": "Don't let the delay in closing 'Waiting for your answer'",
+  "大泡泡不可删除（它承载全部内容）": "The big bubble cannot be deleted (it holds all content)",
+  "大肥鱼的生活也并非一帆风顺...": "Big Fat Fish's life is not always smooth sailing...",
+  "已关闭：无吸附、无翻转，自由摆放": "Closed: no adsorption, no flipping, free placement",
+  "已按图片范围自动估算内容限制范围": "Content restriction range automatically estimated by image range",
+  "拖动小气泡时虚线框比小泡泡走得远": "When dragging the small bubble, the dotted box goes further than the small bubble.",
+  "按压音效与下面几个开关都点不动了": "The pressing sound effect and the following switches cannot be turned on.",
+  "模型（提醒 / 预算 / 额度）": "Models (alerts / budget / quota)",
+  "正在显示 A 类、又来了 B 类": "Showing Category A, here comes Category B",
+  "点全部音效前面那个框无法取消勾选": "The box in front of All Sound Effects cannot be unchecked.",
+  "自定义各边吸附区宽度与翻转线位置": "Customize the width of the adsorption area on each side and the position of the flip line",
+  "自定义提示（每轮消耗 · 内容）": "Custom prompts (consumption per round · content)",
+  "这份是哪个 profile 起来": "Which profile is this?",
+  "（该厂商无余额接口，显示为 —）": "(This manufacturer has no balance interface, which is displayed as —)",
+  " —— 把菜单挂到 body、": " ——Hang the menu to the body,",
+  " 独占一行:拖 ⠿ 可整行排序": " Exclusively in a row: drag ⠿ to sort the entire row",
+  " 音效绑定（'' = 静音）、": " Sound effect binding ('' = mute),",
+  "+ 添加模型（自定义 API）": "+ Add model (custom API)",
+  "180ms 内同一个音只播一次": "The same tone is played only once within 180ms",
+  "Codex 统计已在设置里关闭": "Codex statistics have been turned off in settings",
+  "Kimi Coding（订阅）": "Kimi Coding (subscription)",
+  "OpenCode Go（订阅）": "OpenCode Go (subscription)",
+  "[标签] [✓] 滑块 百分比": "[Tag] [✓] Slider Percentage",
+  "tokens（token 数）": "Tokens (number of tokens)",
+  "⚠ 模型列表加载失败，点此重试": "⚠ Failed to load model list, click here to try again",
+  "『全部音效』前面的框还是点不动": "The box in front of \"All Sound Effects\" still cannot be clicked.",
+  "不知道用户有什么用，先养着吧～": "I don’t know what the users are using it for, so just keep it for now~",
+  "不知道用户有什么用，先赶走吧~": "I don’t know what the users are for, so let’s get rid of them first~",
+  "余额接口返回不是合法 JSON": "Balance API returned invalid JSON",
+  "例: {balance_ds}": "Example: {balance_ds}",
+  "关掉后同一次手势又把它长按打开": "After turning it off, press and hold it again with the same gesture to turn it on.",
+  "删了很久的自定义模块又冒出来了": "Custom modules that have been deleted for a long time appear again",
+  "只在词间/标点处换行、不拆数字": "Only line breaks between words/punctuation points, without splitting numbers",
+  "哈哈哈哈哈，我直接笑出声...": "Hahahahaha, I laughed out loud...",
+  "我...我...我也要挣钱吗？": "I...I...do I also want to make money?",
+  "我不是吃白饭的蓝色大肥鱼...": "I'm not a big fat blue fish who eats for free...",
+  "把默认的文字安全框大小作为默认": "Make the default text safe box size the default",
+  "接口地址不允许携带用户名/密码": "The interface address is not allowed to carry username/password",
+  "提示内容(可拖动下方模块入框)": "Prompt content (you can drag the module below into the frame)",
+  "提醒内容(可拖动下方模块入框)": "Reminder content (you can drag the module below into the frame)",
+  "暂无自定义图片(角色/泡泡图)": "There is no custom picture (character/bubble picture) yet",
+  "暂无自定义音频(片段/音效组)": "No custom audio (clip/sound effects group) yet",
+  "查看今日/近7天/全部消费记录": "View today/last 7 days/all consumption records",
+  "浏览器拦截了新窗口，链接已复制": "The browser blocked the new window and the link was copied",
+  "点按角色关闭提示气泡不会被保存": "Clicking the character to close the prompt bubble will not be saved",
+  "点泡泡的带底色块却进了版号菜单": "The bubble-colored blocks with background color have been included in the version number menu.",
+  "用户把这条点掉了、别再自动弹回": "If the user clicks this item, please do not automatically bounce it back again.",
+  "触发条件(余额低于该值时提醒)": "Trigger (alert when balance is below)",
+  "页面 __DSH_BOOT__": "Page __DSH_BOOT__",
+  "顶行/四行改了、小节里的框没变": "The top/four lines have been changed, but the boxes in the subsections have not changed.",
+  "（默认，角色导入那条老路）| ": "(Default, the old way of character import) |",
+  " 万一残留成 true 而 ": " In case remains true and",
+  " 尚未实现，暂按经典形状渲染": " Not implemented yet, temporarily rendered according to the classic shape",
+  " 展开出来的地址）都必须带 ": " Expanded address) must be brought",
+  "Codex 本地会话：今日 ": "Codex Local Session: Today",
+  "DSH 版本读取不到 (?)": "DSH version cannot be read (?)",
+  "`：前者在部分实现里会被当成": "`: The former will be regarded as",
+  "上侧吸附区：距屏幕顶部的宽度": "Upper side adsorption area: width from the top of the screen",
+  "下侧吸附区：距屏幕底部的宽度": "Lower side adsorption area: width from the bottom of the screen",
+  "余额取数: 本次会话尚未取过": "Balance withdrawal: This session has not been withdrawn yet",
+  "例: 当前 {status}": "Example: Current {status}",
+  "全部（5h / 周 / 月）": "All (5h/week/month)",
+  "内置框只读：请先「复制」再改": "The built-in box is read-only: please \"copy\" first and then change it.",
+  "右侧吸附区：距屏幕右边的宽度": "Right adsorption area: width from the right side of the screen",
+  "同一个按钮再点一次 = 关闭": "Click the same button again = Close",
+  "啦，再花要变成穷光蛋啦...": "Well, if you spend more money, you will become a pauper...",
+  "复制成一个新的框（可再编辑）": "Copy into a new box (can be edited again)",
+  "宿主出状态 + 前端每秒轮询": "Host status + front-end polling every second",
+  "左侧吸附区：距屏幕左边的宽度": "Left adsorption area: width from the left side of the screen",
+  "当前为静音，在下拉设置中修改": "Currently muted, modify it in the drop-down settings",
+  "当前值不是 #rrggbb（": "The current value is not #rrggbb(",
+  "形状内部找不到足够的干净区域": "Not enough clean area found inside shape",
+  "所选槽位不一致，选一次即统一": "The selected slots are inconsistent. Select them once and they will be unified.",
+  "打开窗口查看全部有记录的消费": "Open the window to view all recorded consumption",
+  "按 imgId 量一次、缓存": "Measure once by imgId and cache",
+  "放弃这个泡泡框的未保存修改?": "Discard unsaved changes to this bubble?",
+  "有 path 或 bytes": "There is path or bytes",
+  "服务器繁忙，请稍后再试 (?": "The server is busy, please try again later (?",
+  "未找到 Codex 会话目录": "Codex session directory not found",
+  "本泡泡用哪个框 + 外观覆盖": "Which frame + appearance coverage should be used for this bubble?",
+  "每轮对话回复完成时播放提示音": "A prompt sound will be played when each round of dialogue reply is completed.",
+  "点击编辑该模块(内容/样式)": "Click to edit the module (content/style)",
+  "点取消后，换的泡泡框仍然生效": "After clicking Cancel, the changed bubble box will still take effect.",
+  "用拖入的泡泡替换该并列对中 ": "Replace the aligned center with the dragged bubble",
+  "看到这个指令，我血压又上来了": "After seeing this instruction, my blood pressure went up again.",
+  "等比缩放（以泡泡中心为基准）": "Scale proportionally (based on the center of the bubble)",
+  "节标题 + 右对齐的复制按钮": "Section title + right aligned copy button",
+  "要不直接骂用户一句好了...": "How about just scolding the user directly...",
+  "这一项用哪个框 / 外观覆盖": "Which frame/appearance should this item be covered with?",
+  "选择保底泡泡框（点一下展开）": "Select the guaranteed bubble box (click to expand)",
+  "顶部名字胶囊 + 底部图标脚": "Top name capsule + bottom icon foot",
+  "（Base URL）、以及 ": "(Base URL), and",
+  "（通用缩放，0.2–4）| ": "(Universal scaling, 0.2–4) |",
+  "- = 小鲸鱼记账 = -": "- = Whale Ledger = -",
+  "Minecraft·经验球": "Minecraft·Experience Orb",
+  "上传图片(png/gif)": "Upload image (png/gif)",
+  "你知道吗？我删过作者的库哦": "Did you know? I deleted the author's library",
+  "允许把凭据发送到自定义地址": "Allow credentials to be sent to a custom address",
+  "内容(可拖动下方模块入框)": "Content (you can drag the module below into the frame)",
+  "内置保底框（只读，可复制）": "Built-in guarantee box (read-only, copyable)",
+  "内置框固定排最后，不可置顶": "The built-in frame is fixed at the end and cannot be placed at the top.",
+  "刷新数据（重新向宿主读取）": "Refresh data (read again from host)",
+  "卡上的 change 冒泡": "Change bubble on card",
+  "取消勾选保存后重开仍是勾选": "Uncheck the check box to save and then reopen.",
+  "只要页面开着就不会空闲睡眠": "As long as the page is open, there will be no idle sleep",
+  "填写完整金额后显示校正预览": "After filling in the complete amount, a correction preview is displayed",
+  "多窗口 + 数组顺序不保证": "Multi-window + array order is not guaranteed",
+  "当前 DSH 没有账号服务": "Currently DSH has no account service",
+  "我就是吃白饭的蓝色大肥鱼！": "I'm just a big fat blue fish eating white rice!",
+  "我能去你家吃饭吗？就一碗！": "Can I go to your house for dinner? Just one bowl!",
+  "按下音慢半拍、中间衔接发飘": "Press the tone slowly for half a beat, and the connection in the middle will be wavy",
+  "按压松开音量的开关没有同步": "Pressing and releasing the volume switch is not synchronized",
+  "新增模型（自定义 API）": "Add new model (custom API)",
+  "泡泡框名（最多 24 字）": "Bubble box name (maximum 24 characters)",
+  "点击编辑该泡泡的内容模块(": "Click to edit the content module of the bubble (",
+  "点按有声、但每轮结束音没声": "There is sound when clicking, but there is no sound at the end of each round",
+  "订阅额度剩余百分比（同上）": "Remaining percentage of subscription quota (same as above)",
+  "返回里没有 version": "There is no version in the return",
+  "预设=经典 + 又填了代码": "Default=Classic + filled in the code again",
+  "魔搭 ModelScope": "Magic ModelScope",
+  " 个引用该模型的泡泡模块": " Bubble modules that reference the model",
+  " 居中显示的 ⇒ 先算出": " Centered ⇒ Calculate first",
+  " 置空 → 把 A 项 ": " Leave blank → put item A",
+  "(独占一行,可整行排序)": "(Exclusively on one line, can be sorted in the entire line)",
+  "**账本整个读不出来**": "**The entire ledger cannot be read**",
+  "+ 添加图片(从图库选)": "+ Add picture (select from gallery)",
+  "OpenAI 兼容中转站": "OpenAI Compatible Relay Station",
+  "SoCLaaS 今日剩余": "SoCLaaS today remaining",
+  "gif 加载失败了...": "Gif failed to load...",
+  "— 选择泡泡图库图片 —": "— Select bubble gallery image —",
+  "一口气拖到了 (0,0)": "Dragged to (0,0) in one breath",
+  "一条一直开着的系统音频流": "An always-on system audio stream",
+  "人民币（元 / CNY）": "Renminbi (yuan/CNY)",
+  "余额拿到了、只是没记上账": "I got the balance, but it wasn't recorded in my account.",
+  "内容瞬隐、仅底部按钮淡出": "The content disappears and only the bottom button fades out",
+  "内置数值模块(内容锁定)": "Built-in numerical module (content locked)",
+  "原本（默认）大泡泡的中心": "Original (default) center of the big bubble",
+  "同一天在多个本里都有观测": "There are observations in multiple books on the same day",
+  "在当前基础上再加一个差值": "Add a difference to the current",
+  "坏了...用户彻底怒了！": "Broken...users are completely angry!",
+  "复制失败，请手动选择文本": "Copy failed, please select text manually",
+  "安全区变窄不会让文字换行": "Narrowing the safe area will not cause text to wrap",
+  "完全没有 API key": "No API key at all",
+  "导入 APNG 动图角色": "Import APNG animated characters",
+  "将该模块配置载入当前编辑": "Load the module configuration into the current editor",
+  "开启后泡泡到时间自动关闭": "After being turned on, the bubbles will automatically close when the time expires.",
+  "当前是不是正显示等待泡泡": "Is the waiting bubble currently being displayed?",
+  "当前浏览器不支持音频解码": "The current browser does not support audio decoding",
+  "当前真实泡泡用的是哪个框": "Which frame is currently used for real bubbles?",
+  "总余额(充值金额+赠金)": "Total balance (top-up + bonus)",
+  "总觉得好像忘了什么事情？": "Always feel like you forgot something?",
+  "打不开新窗口，链接已复制": "Can't open new window, link has been copied",
+  "打开后：点角色也能收起…": "After opening: Click on the character to close it...",
+  "抄真实泡泡当前的 SVG": "Copy the current SVG of the real bubble",
+  "挂起上下文、交还系统睡眠": "Suspend context, return system to sleep",
+  "收起后要点两次才能再打开": "After closing, click twice to open it again.",
+  "改过之后点它不展开内容了": "After changing it, clicking on it will not expand the content.",
+  "放弃该泡泡的未保存修改?": "Discard unsaved changes to this bubble?",
+  "文字居中 + ▾ 右对齐": "Center text + ▾ right align",
+  "最下方按钮 ↔ 菜单底边": "Bottom button ↔ menu bottom",
+  "有文件被跳过或本轮没扫完": "Some files were skipped or the scan was not completed this round.",
+  "有没有 Codex 模型": "Is there a Codex model?",
+  "未设置（沿用内置价目表）": "Not set (inherit the built-in price list)",
+  "未配置 Codex 模型": "Codex model not configured",
+  "本统计区间累计到账金额（": "The cumulative amount received in this statistical period (",
+  "权重(越大越容易被抽到)": "Weight (the bigger it is, the easier it is to be drawn)",
+  "模块名称(留空自动编号)": "Module name (leave blank for automatic numbering)",
+  "泡泡框：<保底框名> ▾": "Bubble box: <guaranteed box name> ▾",
+  "点击编辑该泡泡的内容模块": "Click to edit the content module of the bubble",
+  "点这一行展开 / 收起「": "Click this line to expand/collapse \"",
+  "点这里查看版本与自检信息": "Click here to view version and self-test information",
+  "窗口用量% + 重置时间": "Window Usage % + Reset Time",
+  "编辑该模块(内容/样式)": "Edit this module (content/style)",
+  "读 size 配置并应用": "Read size configuration and apply",
+  "账号余额接口调用失败: ": "Account balance interface call failed:",
+  "近7天模型费用 · 估算": "Model costs in the past 7 days·Estimation",
+  "这个形状没有可测量的路径": "This shape has no measurable path",
+  "这个浏览器不支持形状测量": "This browser does not support shape measurements",
+  "阶跃星辰 StepFun": "StepFun",
+  "面板内部交给面板自己处理": "Leave the interior of the panel to the panel itself",
+  "预览一个样、真实另一个样": "Preview one kind, real another kind",
+  "默认大小、以该中心为中心": "Default size, centered on this center",
+  "（10 分钟内已检查过）": "(Checked within 10 minutes)",
+  "），已用默认内容限制范围": "), The scope has been restricted with default content",
+  " 在部分实现里会被当成": " In some implementations it will be treated as",
+  " 字节（不是有效音频）": " Bytes (not valid audio)",
+  " 已是 null ⇒ ": " Already null ⇒",
+  ">> 喂 点 米 <<": ">> Hey, some rice <<",
+  "Codex 统计已关闭": "Codex statistics is closed",
+  "Codex（本地会话）": "Codex (local session)",
+  "DeepSeek 余额": "DeepSeek balance",
+  "npm 输出里没有版本": "There is no version in npm output",
+  "不要给我看这种东西啦！": "Don't show me this kind of thing!",
+  "乘数，如 0.0001": "Multiplier, such as 0.0001",
+  "今日模型费用 · 估算": "Today’s Model Cost · Estimate",
+  "以框中心缩放 + 位移": "Scale + Displace from the center of the box",
+  "任务结束音 = 音效组": "Mission end sound = sound effects group",
+  "例: 20000000": "Example: 20000000",
+  "保存过就不再走取消还原": "Once saved, don’t go back and cancel the restore.",
+  "充值钱包为空、只有赠金": "The recharge wallet is empty and there are only bonuses",
+  "关掉 = 形状内部透明": "Off = Shape internally transparent",
+  "其实没显示却以为在显示": "It’s actually not displayed but I thought it was.",
+  "内容里逐行设的颜色优先": "The color set line by line in the content takes precedence",
+  "再无话说，请速速动手！": "There is nothing more to say, please do it quickly!",
+  "写 state.top": "Write state.top",
+  "分号分隔的头名:值列表": "Semicolon separated header:list of values",
+  "删除这个框（二次确认）": "Delete this box (secondary confirmation)",
+  "压力一只蓝色大肥鱼？！": "Stressing a big fat blue fish? !",
+  "取不到画布（无法测量）": "Cannot get canvas (cannot measure)",
+  "取消勾选按压音效没效果": "Unchecking the pressing sound effect has no effect",
+  "只修一处、另一处仍复现": "Only repair one place, but the other one still reappears",
+  "只登录客户端读不到余额": "You cannot read the balance only by logging in to the client.",
+  "可用占位符(英文): ": "Available placeholders (English):",
+  "吸附区边界线（可拖动）": "Adsorption zone boundary line (dragable)",
+  "呜呜 动图不见了...": "Woohoo, the animation is missing...",
+  "呜呜我再也不敢了QAQ": "Woohoo, I don’t dare to do that anymore QAQ",
+  "图片缩放（0.1–6）": "Image scaling (0.1–6)",
+  "导入 GIF 动图角色": "Import GIF characters",
+  "已启用 · 最近扫描 ": "Enabled · Recent scans",
+  "我必须诚恳地承认错误。": "I must sincerely admit my mistake.",
+  "拉到 0 就等于关音效": "Pulling it to 0 is equivalent to turning off the sound effect.",
+  "按形状/图片估算安全区": "Estimate safe area by shape/picture",
+  "描边粗细（0–120）": "Stroke thickness (0–120)",
+  "无开关、无报错、无提示": "No switches, no errors, no prompts",
+  "来了就要看、会自己消失": "Come and see, it will disappear by itself",
+  "松开音提前多少毫秒进场": "How many milliseconds before the release tone enters the scene?",
+  "永久没声音、刷新也没用": "There is no sound forever and refreshing is useless.",
+  "永久没声音，重启也没用": "There is no sound forever, even restarting does not help.",
+  "测量超时（>16ms）": "Measurement timeout (>16ms)",
+  "滑块看着能调、其实无效": "The slider looks adjustable, but is actually ineffective.",
+  "真当我是便宜货啊...": "You really think I'm a bargain...",
+  "等比缩放（0.2–4）": "Scale (0.2–4)",
+  "置顶（只影响列表排序）": "Pin to top (only affects list sorting)",
+  "美元（$ / USD）": "US Dollar ($/USD)",
+  "翻转线（左侧为翻转区）": "Flip line (the left side is the flip area)",
+  "老大，今天花销已经超过": "Boss, the expenses today have exceeded",
+  "获取失败 · 点击重试": "Failed · click to retry",
+  "裁剪结果没能存进图片库": "The cropping result failed to be saved into the picture library.",
+  "该厂商没有订阅额度接口": "This manufacturer does not have a subscription quota interface",
+  "请先选择或上传一张图片": "Please select or upload an image first",
+  "读不了、写不了、不自愈": "Can't read, can't write, can't heal on my own",
+  "这个泡泡框已经不存在了": "This bubble box no longer exists",
+  "阿里云百炼（通义千问）": "Alibaba Cloud Bailian (Tongyi Qianwen)",
+  "非调用造成的余额减少（": "Balance reduction not caused by calls (",
+  "首次点击 · 编辑内容": "First click · Edit content",
+  "（新建，可\"存为新样式": "(Create new, can \"save as new style\"",
+  "，而内联 SVG 里 ": ", Whereas in inline SVG",
+  " · 今日为部分数据": " · Today is partial data",
+  " · 跟随按压音量 ": " ·Follow pressing volume",
+  " 个模块,无法再加入": " Module, can no longer be added",
+  " 个模块,无法再并入": " Module and can no longer be merged",
+  " 天 · 最近观测 ": " Days · recent observations",
+  " 行,无法再另起一行": " OK, cannot start another line",
+  " 里也没有可用信号（": " There is no signal available (",
+  "API key 路：": "API key path:",
+  "Codex 本机统计": "Codex native statistics",
+  "Codex 统计: ": "Codex statistics:",
+  "SoCLaaS 额度": "SoCLaaS quota",
+  "下一次新的提问/授权": "Next time new question/authorization",
+  "今天没有动图给你看~": "There are no animated pictures for you today~",
+  "余额接口请求失败: ": "Balance interface request failed:",
+  "余额接口返回结构异常": "Balance interface returns structural exception",
+  "你这个吃白饭的用户！": "You freeloader user!",
+  "先听一下再决定开不开": "Listen to it first and then decide whether to turn it on or not.",
+  "删掉最后一个自定义框": "Delete the last custom box",
+  "加载更早记录(还剩 ": "Load earlier records (remaining",
+  "名字胶囊 + 图标脚": "Name capsule + icon foot",
+  "四个框也无法取消勾选": "Four boxes cannot be unchecked",
+  "图片实际画出来的矩形": "The rectangle actually drawn in the picture",
+  "安全区拉窄还是没折行": "Even though the safety zone is narrowed, there is still no break.",
+  "宿主含开发机路径: ": "Host includes development machine path:",
+  "已更新并应用泡泡框「": "The bubble box has been updated and applied \"",
+  "当前挂载的那个复选框": "The currently mounted checkbox",
+  "当前自动统计：已用 ": "Current automatic statistics: used",
+  "往 body 挂节点": "Hang nodes on body",
+  "我去吃饭啦！测完叫我": "I'm going to eat! Call me after the test",
+  "我去吃饭啦，测完叫我": "I'm going to eat. Call me after the test.",
+  "按钮没有完全遮住底部": "Buttons don't completely cover the bottom",
+  "接口与字段（高级）▴": "Interfaces and Fields (Advanced)▴",
+  "接口与字段（高级）▾": "Interfaces and Fields (Advanced) ▾",
+  "控件有值、没有消费方": "The control has a value and no consumer",
+  "提示关闭时不许改秒数": "Do not change the seconds when the prompt is closed",
+  "提示内容(每轮消耗)": "Prompt content (consumption per round)",
+  "无 Codex 数据": "No Codex data",
+  "旧版记录 · 未校正": "Old version records · Uncorrected",
+  "框引用 / 外观覆盖": "Box Reference/Appearance Override",
+  "次点击 · 编辑内容": "Clicks · Edit content",
+  "沿用旧值(true)": "Keep old value(true)",
+  "泡泡内什么都不显示了": "Nothing is displayed in the bubble",
+  "点到透明处穿透到下层": "Click on the transparent part to penetrate to the lower layer",
+  "点按角色关闭提示气泡": "Click the whale to dismiss the prompt bubble",
+  "点按角色推进泡泡队列": "Click the character to advance the bubble queue",
+  "留空＝不改动现有密钥": "Leave blank = Do not modify existing keys",
+  "真实可显示的泡泡宽度": "Real displayable bubble width",
+  "禁止访问云元数据地址": "Disable access to cloud metadata addresses",
+  "秒(0=不自动关闭)": "Seconds (0=no automatic shutdown)",
+  "等待交互泡泡点它不关": "Wait for the interactive bubble to click and it will not close",
+  "等服务端确认后再刷新": "Wait for confirmation from the server before refreshing.",
+  "置顶(排到列表最前)": "Pin it to the top (put it at the top of the list)",
+  "自定义 SVG 代码": "Custom SVG code",
+  "自定义（见下方代码）": "Custom (see code below)",
+  "该事件是否用泡泡提示": "Whether to use bubble prompts for this event",
+  "账号余额接口未就绪（": "The account balance interface is not ready (",
+  "这一条片段本身的试听": "Listening to the clip itself",
+  "重置缩放、旋转和位置": "Reset scale, rotation and position",
+  "额度接口请求失败: ": "Quota interface request failed:",
+  "额度（订阅/资源包）": "Quota (subscription/resource package)",
+  "默认值 vs 显式值": "Default value vs explicit value",
+  " **不再有** ": " **No more**",
+  " · 有待核对调整": " · To be checked and adjusted",
+  " 也只有一个槽位（": " There is also only one slot (",
+  " 是扁平条目数组，": " Is a flat entry array,",
+  " 行,无法再加新行": " OK, new lines cannot be added",
+  " 行,无法另起新行": " OK, cannot start a new line",
+  " 里的任意键（如 ": " Any key in (e.g.",
+  ": 未找到（试过 ": ": Not found (tried",
+  ";点击选择系统字体": ";Click to select system font",
+  "Codex 今日 ": "Codex Today",
+  "⚠ 设置保存失败：": "⚠ Failed to save settings:",
+  "」还没接入余额查询": "\"Not yet connected to balance inquiry",
+  "不布自动关闭计时器": "Auto shut-off timer without setting",
+  "乘数，如 0.01": "Multiplier, such as 0.01",
+  "仅 true 才传": "Only true is passed",
+  "以安全区中心为中心": "Centered on the center of the safe zone",
+  "先看代码、再看预设": "Read the code first, then the presets",
+  "关掉 = 没有描边": "Off = no stroke",
+  "内容显示范围与位移": "Content display range and displacement",
+  "内置保底框不可删除": "The built-in safety frame cannot be deleted",
+  "再点一次仍然弹出来": "Click again and it still pops up",
+  "删掉的模块又冒出来": "Deleted modules reappeared",
+  "加载失败（点重试）": "Load failed (click to retry)",
+  "只有个别浮层被摘掉": "Only individual floating layers were removed",
+  "启动之后新增/更新": "Add/update after startup",
+  "响应不是 JSON": "Response is not JSON",
+  "图片泡泡点了不跳转": "Picture bubbles do not jump when clicked",
+  "复制该行(含样式)": "Copy this line (including styles)",
+  "导入自定义角色图片": "Import custom character images",
+  "小鲸鱼挂件诊断信息": "Whale Widget Diagnostic Information",
+  "工作日的法定节假日": "Legal holidays on working days",
+  "已开启（未填总量）": "Opened (total amount not filled in)",
+  "已经在显示等待泡泡": "Already showing waiting bubble",
+  "平台 / Node": "Platform/Node",
+  "开发版（最新发布 ": "Development version (latest release",
+  "开启/关闭思考气泡": "Toggle thinking bubble",
+  "放弃未保存的更改?": "Discard unsaved changes?",
+  "无法持久化挂件尺寸": "Unable to persist widget size",
+  "显示 N 秒自动关": "Display for N seconds and automatically turn off",
+  "未配置余额接口地址": "Balance interface address is not configured",
+  "标签放行、属性漏放": "Label release, attribute leakage",
+  "每轮结束音读错音量": "The ending sound of each round is pronounced at the wrong volume",
+  "没声音但无任何报错": "No sound but no error message",
+  "没有 safe 时": "When there is no safe",
+  "泡泡内什么都不显示": "Nothing is displayed inside the bubble",
+  "浮层 + 自动收口": "Floating layer + automatic closing",
+  "淡入 + 轻微下移": "Fade in + move down slightly",
+  "点掉的就是当前这条": "The one clicked is the current one",
+  "点角色不动等待提示": "Click the character and wait for the prompt",
+  "用户设了 100%": "User set 100%",
+  "直接点按只有按下音": "Click directly and only press the sound",
+  "确定删除音频片段「": "Confirm deletion of audio clip\"",
+  "统计起点（北京）：": "Statistical starting point (Beijing):",
+  "老大~你的DS余额": "Boss~your DS balance",
+  "至少 30% 可见": "At least 30% visible",
+  "记账: 读取失败 ": "Accounting: Failed to read",
+  "近30天消费 · ": "Consumption in the past 30 days ·",
+  "这次会话永远不出现": "This session will never appear",
+  "选图 / 上传新图": "Select image/upload new image",
+  "音效/提示泡泡设置": "Sound & bubble settings",
+  "预热 A、播放 B": "Warm up A, play B",
+  "颜色:纯色或跑马灯": "Color: solid color or marquee",
+  "（充值余额）：与 ": "(Top-up balance): with",
+  "），选色后会替换它": "), It will be replaced after color selection",
+  "\n已加入模型列表": " \n Has been added to the model list",
+  " · 今日已用 ": " · Today",
+  " · 余额未刷新": " · The balance is not refreshed",
+  " · 数据目录 ": " · Data directory",
+  " → 当前余额 ": " → Current balance",
+  " 字段值（不是 ": " Field value (not",
+  " 条,仅显示前 ": " Bar, only show the front",
+  " 比例吸附 / ": " Proportional adsorption /",
+  " 的今日已用为 ": " Today has been used as",
+  " 绝对吸附 / ": "Absolute adsorption /",
+  " 这类条目没有 ": " There are no such items",
+  "Codex 用量": "Codex usage",
+  "Codex 统计": "Codex statistics",
+  "Codex 缓存": "Codex cache",
+  "npm 退出异常": "Npm exits with exception",
+  "npmjs：超时": "Npmjs: timeout",
+  "token 来!": "Token comes!",
+  "上一轮对话消耗:": "Last round of dialogue consumption:",
+  "不支持的协议: ": "Unsupported protocols:",
+  "不支持的请求方法": "Unsupported request method",
+  "不许被改成非内置": "Not allowed to be changed to non-built-in",
+  "今日暂无消费记录": "There is no consumption record today",
+  "从模块库删除: ": "Remove from module library:",
+  "从模块库加入: ": "Add from module library:",
+  "余额失败原因: ": "Reason for balance failure:",
+  "余额服务异常: ": "Balance service exception:",
+  "例如 18 12": "For example 18 12",
+  "保存该泡泡内容?": "Save the content of this bubble?",
+  "内置模型不可删除": "Built-in models cannot be deleted",
+  "再次点击弹出内容": "Click again to pop up content",
+  "凭据目的地白名单": "Credential destination whitelist",
+  "凭据读取失败: ": "Credentials read failed:",
+  "切换余额来源失败": "Failed to switch balance source",
+  "刚启动时版号消失": "The version number disappears when first started",
+  "前端 UA 兜底": "Front end UA pocket",
+  "只做命中、看不见": "Only hit, invisible",
+  "只显示最大的框框": "Show only the largest frame",
+  "同一锚点 → 关": "Same anchor point → off",
+  "四行通道是否全开": "Are all four lanes open?",
+  "复制以上全部信息": "Copy all the above information",
+  "失败后回退账号路": "Return to account after failure",
+  "好模型... ↓": "Good model... ↓",
+  "存为新样式并应用": "Save as new style and apply",
+  "存在但不在文档里": "Exists but not in the document",
+  "宿主含开发机路径": "Host contains development machine path",
+  "导入并裁剪按压音": "Import and trim press sounds",
+  "导入并裁剪松开音": "Import and trim release notes",
+  "将要发布的那一版": "The version to be released",
+  "底色/描边/线宽": "Background color/stroke/line width",
+  "我写的东西没效果": "What I wrote didn’t work",
+  "按住拖动整行排序": "Press and drag the entire row to sort",
+  "排了队但还没轮到": "Got in line but it's not my turn yet",
+  "新建/编辑音效组": "Create/edit sound effects group",
+  "映射进它自己小框": "Map into its own small box",
+  "本次会话尚未取过": "This session has not been retrieved yet",
+  "桌面端窗口控件带": "Desktop window control strip",
+  "正在等待老大回答": "Waiting for the boss's answer",
+  "正在等待老大授权": "Waiting for authorization from boss",
+  "泡泡框（保底）：": "Bubble frame (fallback):",
+  "消费记录(全部)": "Usage records (all)",
+  "火山方舟 Ark": "Volcano Ark",
+  "用户勾了音效开关": "The user checked the sound effect switch",
+  "用户真的自定义过": "Users have really customized",
+  "登记了但从未挂上": "Registered but never registered",
+  "百度千帆（文心）": "Baidu Qianfan (Wenxin)",
+  "看起来完全没反应": "Looks completely unresponsive",
+  "真实预览下面一行": "Real preview of the line below",
+  "真正画出来的矩形": "The actual drawn rectangle",
+  "硅基流动（CN）": "Silicon based flow (CN)",
+  "硅基流动（EN）": "Silicon based flow (EN)",
+  "确定删除泡泡图「": "Confirm to delete bubble chart\"",
+  "确定删除音效组「": "Confirm to delete sound effects group\"",
+  "缩放中心还是不对": "The zoom center is still wrong",
+  "老配置外观零变化": "No change in the appearance of the old configuration",
+  "自定义 HTTP": "Custom HTTP",
+  "被别的插件摘走了": "Removed by another plug-in",
+  "要去本机面板确认": "Go to the local panel to confirm",
+  "触摸起点命中鲸鱼": "Touch the starting point to hit the whale",
+  "记账: 已记录 ": "Accounting: Recorded",
+  "试听裁剪后的片段": "Listen to the trimmed clip",
+  "账号余额异常: ": "Abnormal account balance:",
+  "账号余额请求超时": "Account balance request timed out",
+  "账号没有余额钱包": "The account has no balance in the wallet",
+  "距边缘 ≥ 阈值": "From edge ≥ threshold",
+  "跟随①区按压音量": "Follow the ① area to press the volume",
+  "这三行字不用变灰": "These three lines do not need to be grayed out",
+  "这个泡泡用哪个框": "Which frame is used for this bubble?",
+  "这条挂起已被点掉": "This pending item has been clicked off",
+  "重置（本地时间）": "Reset (local time)",
+  "问号里的内容没了": "The content in the question mark is gone",
+  "预设/自定义代码": "Default/custom code",
+  "首次点击弹出内容": "First click popup content",
+  "（DSH 凭据）": "(DSH credentials)",
+  "（写回原框）/ ": "(Write back to the original box)/",
+  "（已设为保底框）": "(Already set as a bottom protection frame)",
+  "（点柱查看当日）": "(Click on the column to view the current day)",
+  "（编辑已有）/ ": "(Edited already)/",
+  "）→ 已备份为 ": ") → Backed up as",
+  " vs 上报 ": " Vs report",
+  " · 今日完整": " · Complete today",
+  " · 已运行 ": " · Already run",
+  " · 无待核对": " · No verification yet",
+  " · 来源: ": " · Source:",
+  " · 泡泡图 ": " · Bubble chart",
+  " · 编辑内容": " · Edit content",
+  " · 近7天 ": " · Last 7 days",
+  " 个会话文件）": " Session file)",
+  " 今日预算提醒": " Today’s Budget Reminder",
+  " 会先被压成 ": " Will be pressed into",
+  " 头、401/": "Head, 401/",
+  " 的内置端点，": " The built-in endpoint of",
+  " 马卡龙 | ": " Macarons |",
+  "GET（默认）": "GET (default)",
+  "⚠ 币种不一致": "⚠ Currency is inconsistent",
+  "⚠ 测试失败\n": "⚠ Test failed \n",
+  "✓ 保存成功：": "✓ Saved successfully:",
+  "✓ 测试通过\n": "✓ Test passed \n",
+  "下拉 + 音量": "Pull down + volume",
+  "下拉点了没反应": "No response when I pull down.",
+  "今日已用 ≥ ": "Today ≥",
+  "从模块库删除「": "Delete \"from module library\"",
+  "余额·加载中…": "Balance · loading…",
+  "余额暂未刷新：": "The balance has not been refreshed yet:",
+  "例: 0.02": "Example: 0.02",
+  "保存了但不生效": "Saved but not effective",
+  "值变了界面没变": "The value has changed but the interface has not changed.",
+  "充值与余额调整": "Recharge and balance adjustment",
+  "入口行/折叠体": "Entry row/folder",
+  "内容显示范围：": "Content display range:",
+  "删除这个小泡泡": "Delete this little bubble",
+  "可用占位符用法": "Available placeholder usage",
+  "吸附与翻转设置": "Snap and flip settings",
+  "哦鲸鲸... ": "Oh whale whale...",
+  "坐在这台机器前": "Sit in front of this machine",
+  "好女孩...↓": "Good girl...↓",
+  "好模型...↓": "Good model...↓",
+  "官方桌面客户端": "Official desktop client",
+  "实际生效的音量": "Actual effective volume",
+  "密钥 / 接口": "Key/interface",
+  "导出到泡泡图库": "Export to bubble gallery",
+  "左右两个大元素": "Two big elements on the left and right",
+  "已保存并应用「": "Saved and applied \"",
+  "已复制到剪贴板": "Copied to clipboard",
+  "已配置/未配置": "Configured/unconfigured",
+  "已配置密钥 ✓": "Configured key ✓",
+  "当前可见最高层": "Currently visible top layer",
+  "当前是哪个模型": "Which model is currently",
+  "当前最高层之上": "Above the current top level",
+  "当前正在使用的": "Currently in use",
+  "当前项 + 框": "Current item + box",
+  "待核对余额调整": "Balance adjustment to be verified",
+  "恢复这个小泡泡": "Restore this little bubble",
+  "指向已不存在框": "Point to box no longer exists",
+  "按压音还剩多久": "How long is the pressing sound left?",
+  "提示与音效设置": "Sound & prompt settings",
+  "播这个绑定音效": "Play this bound sound effect",
+  "收起动画计时器": "Collapse animation timer",
+  "无效的接口地址": "Invalid interface address",
+  "更多消费记录…": "More usage records…",
+  "未到账请填 0": "If the account has not been received, please fill in 0",
+  "未知的厂商模板": "Unknown vendor template",
+  "栅栏自己抛异常": "The fence throws an exception by itself",
+  "框比泡泡走得远": "Frames go further than bubbles",
+  "框级文字默认色": "Default color for box-level text",
+  "模型设置 · ": "Model settings ·",
+  "正在刷新余额…": "Refreshing balance...",
+  "正显示等待泡泡": "Showing waiting bubble",
+  "每日与逐条明细": "Daily and itemized details",
+  "每轮消耗·默认": "Consumption per round·Default",
+  "没有匹配的记录": "No matching records",
+  "泡泡真的收掉了": "Bubbles are really gone",
+  "消耗泡泡正开着": "The consumption bubble is open",
+  "点击编辑该泡(": "Click to edit the bubble(",
+  "点掉的那条挂起": "The one I clicked off hangs",
+  "现在画的是什么": "What are you drawing now?",
+  "留空（不发声）": "Leave blank (no sound)",
+  "确定删除角色「": "Confirm to delete role\"",
+  "确定删除音频「": "Confirm to delete audio\"",
+  "禁止访问该地址": "Access to this address is prohibited",
+  "第 n 次点击": "Nth click",
+  "简洁(峰/谷)": "Simplicity (peaks/troughs)",
+  "结束时间（秒）": "End time (seconds)",
+  "编辑这个泡泡框": "Edit this bubble box",
+  "自动估算失败（": "Auto estimation failed (",
+  "要不要覆盖①区": "Do you want to cover area ①?",
+  "记账: 不可用": "Accounting: Not available",
+  "试听任务结束音": "Listen to the task end sound",
+  "试听该音频片段": "Listen to this audio clip",
+  "该模型今日已用": "This model has been used today",
+  "账号余额不可用": "Account balance unavailable",
+  "起始时间（秒）": "Start time (seconds)",
+  "身体自己接事件": "The body takes events on its own",
+  "近7天使用记录": "Usage records in the past 7 days",
+  "这个音效播不播": "Does this sound effect play?",
+  "这次点击被吞了": "This click was swallowed",
+  "选择跑马灯方案": "Choose a marquee plan",
+  "钱包字段不可用": "Wallet field is not available",
+  "键 · 简化值": "Key · simplified value",
+  "音量>0 即开": "Volume > 0, turn on",
+  "音频响应只有 ": "Audio response only",
+  "额度已用百分比": "Percentage of quota used",
+  "额度重置倒计时": "Limit reset countdown",
+  "首次用到才生成": "Generated only when used for the first time",
+  "默认 100%": "Default 100%",
+  "（内置，只读）": "(Built-in, read-only)",
+  "（判定来源: ": "(Judgment source:",
+  "（无余额接口）": "(No balance interface)",
+  "（源码字面量 ": "(Source code literal",
+  "）且备份失败：": ") And the backup fails:",
+  "＋ 添加新泡泡": "+ Add new bubbles",
+  "，预算阈值按 ": ", The budget threshold is",
+  "；账号登录路：": ";Account login path:",
+  "\n最近观测：": " \n Recent observations:",
+  "\n起点余额 ": " \n Starting balance",
+  " / 额度 ": " / Quota",
+  " · 今日 ": " · Today",
+  " · 峰值 ": " · Peak",
+  " · 延后 ": " · Postponed",
+  " · 本月 ": " ·This month",
+  " · 片段 ": " · Fragment",
+  " · 累计 ": " · Cumulative",
+  " · 跳过 ": " · Skip",
+  " 个会话文件": " Session files",
+  " 个超大日志": " Very large log",
+  " 是否冒泡、": " Is it bubbling?",
+  " 是条目的 ": " It's an entry",
+  " 是每条的 ": " It’s for each item",
+  " 泡(权重 ": " Bubble(weight",
+  " 泡的内容?": " The content of the bubble?",
+  " 现在常驻 ": " Now resident",
+  "!?峰峰?!": "!?Fengfeng?!",
+  "!?强强?!": "!?Qiangqiang?!",
+  "!?谷谷?!": "!?Gu Gu?!",
+  "(无效地址)": "(Invalid address)",
+  "+ 新建模块": "+ New module",
+  "+ 添加语句": "+ Add statement",
+  "5 秒后收起": "Collapse in 5 seconds",
+  "DSH 版本": "DSH version",
+  "SVG 代码": "SVG code",
+  "s，缩放 x": "S, scale x",
+  "… 该日共 ": "… The total number of days",
+  "三处是否一致": "Are the three places consistent?",
+  "今日剩余额度": "Today's remaining",
+  "今日已用金额": "Amount used today",
+  "今日部分数据": "Some data today",
+  "今日预算提醒": "Today’s Budget Reminder",
+  "从模块库删除": "Remove from module library",
+  "从模块库载入": "Load from module library",
+  "余额取数: ": "Balance withdrawal:",
+  "余额失败原因": "Reason for balance failure",
+  "余额暂未刷新": "The balance has not been refreshed yet",
+  "余额真的见底": "The balance really bottomed out",
+  "余额获取失败": "Failed to fetch balance",
+  "例: 1.0": "Example: 1.0",
+  "例: 4.0": "Example: 4.0",
+  "保存失败: ": "Save failed:",
+  "全部记录合计": "All records total",
+  "内容限制范围": "Content restrictions",
+  "切换到编辑 ": "Switch to edit",
+  "刚启动时消失": "Disappears on startup",
+  "删除泡泡框「": "Delete bubble box \"",
+  "删除该次点击": "Delete this click",
+  "别开在屏幕外": "Don't open it outside the screen",
+  "前端文件: ": "Front-end files:",
+  "单价（可选）": "Unit price (optional)",
+  "取消绝不落盘": "Cancellation will never be placed",
+  "另存为并应用": "Save as and apply",
+  "另存为泡泡框": "Save as bubble box",
+  "只刷新这一行": "Refresh only this row",
+  "只刷新那一行": "Refresh only that row",
+  "合法连续两次": "Legal twice in a row",
+  "同一行最多 ": "Most in the same line",
+  "含开发机路径": "Contains development machine path",
+  "周末也算谷价": "Weekends are also considered as grain prices",
+  "哦鲸鲸...": "Oh whale whale...",
+  "复制诊断信息": "Copy diagnostic information",
+  "存为可选模块": "Save as optional module",
+  "完成时不提示": "Don’t prompt when finished",
+  "宿主文件: ": "Host file:",
+  "导入动图角色": "Import animated characters",
+  "导入后的识别": "Recognition after import",
+  "小黄鸭·按下": "Little Yellow Duck·Press",
+  "小黄鸭·松开": "Little yellow duck · let go",
+  "尚未配置密钥": "No key configured yet",
+  "已同时移除 ": "Removed at the same time",
+  "带凭据发请求": "Make a request with credentials",
+  "必然会被调用": "Will definitely be called",
+  "恢复默认颜色": "Restore default colors",
+  "所选片段为空": "Selected clip is empty",
+  "手机上拖不动": "Can't drag it on mobile phone",
+  "按下音慢半拍": "Press the tone half a beat slower",
+  "按压松开音量": "Press and release volume",
+  "按压泡泡设置": "Press bubble",
+  "按片段切出来": "Cut out by segment",
+  "授权提示音量": "Approval prompt volume",
+  "描边改成虚线": "Change stroke to dotted line",
+  "提问提示音效": "Question prompt sound effect",
+  "提问提示音量": "Question prompt volume",
+  "撤销该日校正": "Cancel the correction for this day",
+  "放大 0.1": "Zoom in 0.1",
+  "数据目录: ": "Data directory:",
+  "整页样式重算": "Full page style recalculation",
+  "新卡片弹出来": "New card pops up",
+  "新增模块: ": "New modules:",
+  "是（开发版）": "Yes (development version)",
+  "暂无模型明细": "No model details",
+  "暂无每日数据": "No daily data",
+  "暂无每日记录": "No daily records yet",
+  "有文件被跳过": "Files were skipped",
+  "未命名音效组": "Unnamed sound effects group",
+  "本机模型费用": "Native model cost",
+  "本该已经到期": "Should have expired",
+  "校正内容无效": "Correction content is invalid",
+  "校正后消费：": "Corrected consumption:",
+  "检查更新: ": "Check for updates:",
+  "槽位的名义框": "The slot's nominal frame",
+  "槽位自己的框": "Slot own box",
+  "每轮消耗提示": "Per-turn cost",
+  "气泡全局开关": "Bubbles",
+  "没有余额钱包": "No balance wallet",
+  "没有请填 0": "If not, please fill in 0",
+  "泡泡内容预览": "Bubble content preview",
+  "泡泡框选择器": "Bubble box selector",
+  "泡泡自己下移": "The bubble moves down by itself",
+  "波形放大倍数": "Waveform magnification",
+  "测试失败: ": "Test failed:",
+  "消耗提示音量": "Consumption prompt volume",
+  "消耗数据丢存": "Consumption of data and storage",
+  "点击加入泡泡": "Click to join the bubble",
+  "版本自洽: ": "Version self-consistency:",
+  "用户真的给过": "Users have really given",
+  "留空·不发声": "Leave blank·no sound",
+  "看起来点不到": "Looks like I can't get it",
+  "真正只管按压": "Really just press",
+  "确实没有栅栏": "There really is no fence",
+  "第一次没赶上": "Didn't catch up the first time",
+  "终于上当了！": "Finally got fooled!",
+  "经典（内置）": "Classic (built-in)",
+  "编辑提示内容": "Edit prompt content",
+  "编辑模块: ": "Edit module:",
+  "编辑泡泡框：": "Edit bubble box:",
+  "缩小 0.1": "Zoom out 0.1",
+  "被点掉的挂起": "Clicked off hang",
+  "裁剪角色图片": "Crop character image",
+  "记录加载失败": "Failed to load records",
+  "记账数对不上": "The accounting numbers don’t match",
+  "试听按压音效": "Listen to the press sound effect",
+  "该地址不是 ": "This address is not",
+  "该模型的余额": "The balance of the model",
+  "读取不到余额": "Unable to read balance",
+  "账本（记账）": "Ledger (accounting)",
+  "起点命中鲸鱼": "Hit the whale at the starting point",
+  "这一项用的框": "Box for this item",
+  "选择系统字体": "Select system font",
+  "重取模型列表": "Retrieve model list",
+  "重置已用基准": "Reset used baseline",
+  "镜像最新一条": "Mirror latest one",
+  "隐藏菜单按钮": "Hide menu button",
+  "难道说...": "Could it be that...",
+  "音效1·按下": "Sound Effect 1·Press",
+  "音效1·松开": "Sound Effect 1·Release",
+  "音效相关设置": "Sound effect related settings",
+  "音频片段名称": "Audio clip name",
+  "音频解码失败": "Audio decoding failed",
+  "（充值）与 ": "(Recharge) and",
+  "（暂未加载）": "(Not loaded yet)",
+  "（赠金）与 ": "(Bonus) vs.",
+  "，点击时读 ": ", Read when clicked",
+  "\n它正被 ": " \n It is being",
+  " · 剩 ": " · Leftover",
+  " · 周 ": " · Week",
+  " 一起由 ": " Together by",
+  " 个位置）": " Positions)",
+  " 余额预警": " Low balance alert",
+  " 元时提醒": " Yuanshi reminder",
+  " 改成了 ": " Changed to",
+  " 无 | ": " None |",
+  " 早已被 ": " Already been",
+  " 条路由）": " Routes)",
+  " 次/分钟": " Times/minute",
+  " 返回的 ": " Returned",
+  " 里每次 ": " Every time",
+  "(不截断)": "(Not truncated)",
+  "(无路径)": "(No path)",
+  ", 智: ": ", Wisdom:",
+  ", 本: ": ", Ben:",
+  ", 火: ": ", Fire:",
+  ", 百: ": ", Hundred:",
+  ", 硅: ": ", Silicon:",
+  ", 腾: ": ", Teng:",
+  ", 自: ": ", Since:",
+  ", 讯: ": ", News:",
+  ", 阶: ": ", Order:",
+  ", 魔: ": ", Devil:",
+  "SVG代码": "SVG code",
+  "px 描边": "Px stroke",
+  "{占位符}": "{placeholder}",
+  "不越出画布": "Stay within the canvas",
+  "不透明部分": "Opaque part",
+  "事件总开关": "Event master switch",
+  "人民币 ¥": "RMB ¥",
+  "今日已用 ": "Today",
+  "今日已用·": "Today·",
+  "从顶部开始": "Start from top",
+  "以中心定位": "Centered",
+  "任务结束音": "Task-end sound",
+  "余额 ≤ ": "Balance ≤",
+  "余额差记账": "Balance difference accounting",
+  "保存/取消": "Save/Cancel",
+  "保存并应用": "Save and apply",
+  "保存才提交": "Save before submitting",
+  "全模型合计": "Total of all models",
+  "内容包围盒": "Content bounding box",
+  "删除模型「": "Delete model \"",
+  "删除该图片": "Delete this picture",
+  "删除该模块": "Delete this module",
+  "删除该音频": "Delete this audio",
+  "删除音效组": "Delete sound effects group",
+  "厂商额度 ": "Manufacturer's quota",
+  "历史文字框": "History text box",
+  "历史记账本": "Historical ledger",
+  "可用模型 ": "Available models",
+  "可见包围盒": "Visible bounding box",
+  "吸附与翻转": "Snap & flip",
+  "图片/动图": "Image/GIF",
+  "填满预览框": "Fill preview box",
+  "外观/设置": "Appearance/Settings",
+  "失败得很快": "Fail fast",
+  "完全用模板": "Completely using templates",
+  "客户端: ": "Client:",
+  "密钥已删除": "Key deleted",
+  "小时后重置": "Reset after hours",
+  "小鲸鱼挂件": "Whale pendant",
+  "已是最新（": "Is the latest (",
+  "已校正消费": "Corrected consumption",
+  "已观测消费": "Observed spend",
+  "并列/拆开": "Juxtapose/separate",
+  "底色透明度": "Background transparency",
+  "开发版路径": "Development version path",
+  "当前保底框": "Current guaranteed frame",
+  "当前最高层": "Current top level",
+  "当前服务「": "Current services",
+  "形状与内容": "Shape and content",
+  "恢复为默认": "Revert to default",
+  "所见即所存": "What you see is what is there",
+  "手动 · ": "Manual ·",
+  "承载框设置": "Bearing frame settings",
+  "折行/宽度": "Wrap/Width",
+  "拿不到余额": "Can't get the balance",
+  "拿错了模板": "Got the wrong template",
+  "挂件已运行": "Widget is running",
+  "指向已删框": "Point to deleted box",
+  "按压音效组": "Press sound effects group",
+  "授权·默认": "Authorization·Default",
+  "授权提示音": "Authorization tone",
+  "描边透明度": "Stroke transparency",
+  "提示内容(": "Prompt content (",
+  "提问·默认": "Question·Default",
+  "插件消失了": "Plugin disappeared",
+  "改了没效果": "Changing it has no effect",
+  "整块点不到": "Can't hit the whole piece",
+  "整张图的框": "The frame of the whole picture",
+  "文字默认色": "Text default color",
+  "文本被解释": "Text is interpreted",
+  "新建泡泡框": "Create a new bubble box",
+  "新建音效组": "Create a new sound effects group",
+  "时段倒计时": "Countdown",
+  "显示叠加层": "Show overlay",
+  "有新版本 ": "There is a new version",
+  "未命中输入": "Miss input",
+  "未命名音频": "Unnamed audio",
+  "本地估算：": "Local estimate:",
+  "框库/保底": "Frame library/Guarantee",
+  "桌面客户端": "Desktop client",
+  "检查失败：": "Check failed:",
+  "模型不存在": "Model does not exist",
+  "模型注册表": "Model registry",
+  "正在保存…": "Saving…",
+  "永久坏锚点": "Permanently broken anchor",
+  "没填的字段": "Unfilled fields",
+  "没有挂起了": "Not hung up",
+  "泡泡最多 ": "Most bubbles",
+  "测试连通性": "Test connectivity",
+  "点一下试听": "Click to listen",
+  "点了没反应": "Clicked but no response",
+  "点击复制「": "Click to copy",
+  "点击复制：": "Click to copy:",
+  "点别处就收": "Click elsewhere to close",
+  "点别处收起": "Click elsewhere to close",
+  "版本与安装": "Version and installation",
+  "独立插件窗": "Independent plug-in window",
+  "用户关掉的": "Turned off by user",
+  "用户的意思": "User meaning",
+  "用量行元素": "Row element",
+  "界面在骗人": "The interface is deceiving",
+  "确实没有了": "Indeed no more",
+  "窗口控件带": "Window control strip",
+  "竖向范围内": "Within vertical range",
+  "第n次点击": "Nth click",
+  "统计更新中": "Statistics are being updated",
+  "统计起点：": "Statistical starting point:",
+  "编辑音效组": "Edit sound effects group",
+  "置顶序号 ": "Pinned serial number",
+  "自动 · ": "Auto ·",
+  "自定义代码": "Custom code",
+  "自定义内容": "Custom content",
+  "自定义提示": "Customize prompt",
+  "自定义泡泡": "Customize bubbles",
+  "自定义角色": "Custom role",
+  "自己弹出来": "Pop out on its own",
+  "苹方/雅黑": "Pingfang/Yahei",
+  "薰衣草梦境": "Lavender Dreamland",
+  "被截断显示": "Truncated",
+  "读取失败 ": "Load failed",
+  "读取失败：": "Load failed:",
+  "超链接: ": "Hyperlink:",
+  "跟随保底框": "Follow the bottom line",
+  "跟随保底（": "Follow the guarantee (",
+  "返回主菜单": "Return to main menu",
+  "还以为开着": "Thought it was open",
+  "进去、出来": "Go in, come out",
+  "选择音效组": "Select sound effects group",
+  "逐字符一致": "Consistent character by character",
+  "避让滚动条": "Avoid scrollbar",
+  "金额（元）": "Amount (yuan)",
+  "需要持久化": "Requires persistence",
+  "非实体像素": "Non-physical pixels",
+  "非调用扣减": "Non-call deduction",
+  "音效与提示": "Sound & prompts",
+  "预设/代码": "Preset/Code",
+  "额度 --": "Quota --",
+  "额度 · ": "Quota ·",
+  "额度剩余值": "Remaining value of quota",
+  "额度已用值": "Quota used value",
+  "默认音效组": "Default sound effects group",
+  "（凭据）、": "(Credentials),",
+  "（已删除）": "(Deleted)",
+  "（未选择）": "(Not selected)",
+  "\n上次：": " \n Last time:",
+  "\n当前：": " \n Current:",
+  " 不变、": " Unchanged,",
+  " 个会话": " Sessions",
+  " 个模块": " Modules",
+  " 小时 ": " Hours",
+  " 已用 ": " Used",
+  " 改为 ": " Change to",
+  " 时提醒": " Reminder",
+  " 松开:": " Loosen:",
+  " 笔明细": " Pen details",
+  " 都是 ": " All",
+  "(保留 ": "(Reserved",
+  "A(左)": "A(left)",
+  "B(右)": "B(right)",
+  "[图片]": "[Image]",
+  "‹ 返回": "‹ Back",
+  "②区优先": "②District priority",
+  "上传新图": "Upload new image",
+  "下载文件": "Download file",
+  "不可命中": "Can't hit",
+  "不自动关": "Does not turn off automatically",
+  "之前已用": "Used before",
+  "事件匹配": "Event matching",
+  "今日已用": "Today",
+  "今日预算": "Daily budget",
+  "任务结束": "Mission ended",
+  "余额 0": "Balance 0",
+  "余额内容": "Balance content",
+  "余额取数": "Balance withdrawal",
+  "余额字段": "Balance field",
+  "余额成功": "Balance successful",
+  "余额接口": "Balance interface",
+  "余额来源": "Balance source",
+  "余额校正": "Balance correction",
+  "余额预警": "Low balance alert",
+  "保存中…": "Saving…",
+  "保存失败": "Save failed",
+  "保存校正": "Save correction",
+  "保留长度": "Max length",
+  "信任列表": "Trust list",
+  "停止试听": "Stop listening",
+  "充值余额": "Top-up balance",
+  "全部音效": "All sound effects",
+  "内容中心": "Content center",
+  "再次点击": "Next click",
+  "冒泡提示": "Bubble prompt",
+  "分后重置": "Reset after points",
+  "分段控件": "Segmented control",
+  "删除密钥": "Delete key",
+  "删除模型": "Delete model",
+  "删除角色": "Delete role",
+  "删除该句": "Delete this sentence",
+  "刷新中…": "Refreshing…",
+  "刷新失败": "Refresh failed",
+  "刷新数据": "Refresh data",
+  "刷新额度": "Refresh quota",
+  "前端文件": "Front-end files",
+  "加载中…": "Loading…",
+  "加载失败": "Load failed",
+  "动图预览": "GIF preview",
+  "勾不回来": "Can't hook it back",
+  "勾回旧值": "Check back the old value",
+  "华文楷体": "Chinese regular script",
+  "即将重置": "About to reset",
+  "厂商模板": "Vendor template",
+  "厂商额度": "Manufacturer's quota",
+  "取消不掉": "Cannot cancel",
+  "取消置顶": "Unpin",
+  "取消还原": "Cancel restore",
+  "可选模块": "Available modules",
+  "同源视图": "Same origin view",
+  "启用提醒": "Enable alert",
+  "响应过大": "Response too large",
+  "图片导入": "Image import",
+  "圆角矩形": "Rounded rectangle",
+  "垂直翻转": "Flip vertically",
+  "基本信息": "Basic information",
+  "墨韵黑白": "Black and white",
+  "复制该项": "Copy this item",
+  "子智能体": "Subagent",
+  "完全禁用": "Disable completely",
+  "宿主文件": "Host file",
+  "宿主读取": "Host read",
+  "导入片段": "Import clips",
+  "小泡泡1": "Little bubble 1",
+  "小泡泡2": "Little Bubble 2",
+  "局部移除": "Partial removal",
+  "岩浆熔岩": "Magma lava",
+  "峰谷时段": "Peak/off-peak",
+  "已复制：": "Copied:",
+  "已用字段": "Used fields",
+  "已用来源": "Source used",
+  "已经不足": "Already insufficient",
+  "已跳过 ": "Skipped",
+  "平台: ": "Platform:",
+  "并成一份": "Merge into one",
+  "开着过夜": "Leave it on overnight",
+  "当前: ": "Current:",
+  "当前在哪": "Where are you currently?",
+  "当前对话": "Current conversation",
+  "当前模型": "Current model",
+  "微软雅黑": "Microsoft Yahei",
+  "思源黑体": "Siyuan black body",
+  "总量字段": "Total field",
+  "恢复默认": "Restore defaults",
+  "所有内容": "All content",
+  "所选槽位": "Selected slot",
+  "手动填写": "Fill in manually",
+  "打回默认": "Return to default",
+  "打开链接": "Open link",
+  "按余额差": "According to balance difference",
+  "按压音效": "Press sound",
+  "按压音量": "Press volume",
+  "按需补量": "Refill as needed",
+  "授权提示": "Approval prompt",
+  "接口失败": "Interface failed",
+  "接口没通": "The interface is blocked",
+  "提示类键": "Prompt key",
+  "提示音量": "Prompt volume",
+  "提醒内容": "Alert content",
+  "提问提示": "Question prompt",
+  "收起过渡": "Collapse transition",
+  "放大倍数": "Magnification",
+  "数值乘数": "Numerical multiplier",
+  "数据更新": "Updated",
+  "数据落点": "Data drop point",
+  "整泡关闭": "Whole bubble closed",
+  "文本: ": "Text:",
+  "文本内容": "Text content",
+  "新 id": "New id",
+  "方形锯齿": "Square sawtooth",
+  "显示大小": "Display size",
+  "显示样式": "Display style",
+  "暂时故障": "Temporary failure",
+  "更新日志": "Change log",
+  "最新一条": "Latest one",
+  "有待核对": "To be verified",
+  "有没有值": "Is it valuable?",
+  "服务缺失": "Missing service",
+  "未启用（": "Not enabled (",
+  "未知原因": "Unknown reason",
+  "未知错误": "Unknown error",
+  "未配置 ": "Not configured",
+  "本地估算": "Local estimate",
+  "本月已用": "Used this month",
+  "极光幻彩": "Aurora Symphony",
+  "查看说明": "View instructions",
+  "栅栏可用": "Fence available",
+  "标称坐标": "Nominal coordinates",
+  "梁文峰谷": "Liang Wenfeng Valley",
+  "检查中…": "Checking…",
+  "检查更新": "Check for updates",
+  "检测到 ": "Detected",
+  "森林秘语": "Secret language of the forest",
+  "正在收起": "Folding",
+  "正被占着": "Being occupied",
+  "每日重置": "Daily reset",
+  "每月重置": "Reset monthly",
+  "比例吸附": "Proportional adsorption",
+  "水平翻转": "Flip horizontally",
+  "永不致命": "Never fatal",
+  "没吃饱喵": "Not full, meow",
+  "泡泡框：": "Bubble box:",
+  "泡泡配置": "Bubble configuration",
+  "测试中…": "Testing…",
+  "测试失败": "Test failed",
+  "测量失败": "Measurement failed",
+  "深海蓝调": "Deep sea blues",
+  "混合模式": "Blend mode",
+  "火红烈焰": "Fiery red flames",
+  "点击复制": "Click to copy",
+  "点在外面": "Point outside",
+  "点按即响": "Click to ring",
+  "版本: ": "Version:",
+  "版本自洽": "Version self-consistent",
+  "环境: ": "Environment:",
+  "用量乘数": "Usage multiplier",
+  "用量字段": "Usage field",
+  "用量接口": "Usage interface",
+  "界面所见": "What you see on the interface",
+  "留在后台": "Stay in the background",
+  "空闲时段": "Idle period",
+  "立刻生效": "Effective immediately",
+  "累计到账": "Accumulated arrival",
+  "组→片段": "Group→Clip",
+  "经典椭圆": "Classic oval",
+  "绝对吸附": "Absolute adsorption",
+  "缓存命中": "Cache hit",
+  "缩放倍数": "Zoom factor",
+  "置灰状态": "Grayed out",
+  "美元 $": "USD $",
+  "耗时未知": "Time consuming unknown",
+  "腾讯混元": "Tencent Hunyuan",
+  "自动估算": "Auto estimation",
+  "自动关 ": "Auto-close ",
+  "自动关闭": "Auto-close",
+  "自定义组": "Custom group",
+  "自检: ": "Self-check:",
+  "获取失败": "Failed",
+  "落日熔金": "Sunset melts gold",
+  "薄荷汽水": "Mint soda",
+  "裁剪音频": "Crop audio",
+  "角色名称": "Character name",
+  "解析失败": "Parsing failed",
+  "触发条件": "Trigger condition",
+  "触摸手势": "Touch gesture",
+  "警示橙黄": "Warning orange",
+  "讯飞星火": "IFlytek Spark",
+  "记不了账": "Can't keep accounts",
+  "记账: ": "Accounting:",
+  "试听名单": "Audition list",
+  "请求上限": "Rate limit",
+  "请求参数": "Request parameters",
+  "请求方法": "Request method",
+  "读取中…": "Reading…",
+  "读取失败": "Load failed",
+  "资源管理": "Resources",
+  "赠送额度": "Credits",
+  "跟随①区": "Follow ① area",
+  "跟随保底": "Follow the guarantee",
+  "轮次序号": "Round number",
+  "运行环境": "Operating environment",
+  "这条挂起": "This is pending",
+  "选择纯色": "Choose a solid color",
+  "选择角色": "Select role",
+  "重复播放": "Repeat",
+  "重新读取": "Reread",
+  "银河星紫": "Milky Way Star Purple",
+  "链接文字": "Link text",
+  "随机图片": "Random image",
+  "随机语句": "Random line",
+  "靛蓝夜曲": "Indigo Nocturne",
+  "音效开关": "Sound effect switch",
+  "音效没开": "Sound effect is off",
+  "音效组 ": "Sound set",
+  "音量>0": "Volume>0",
+  "音频片段": "Audio clip",
+  "预设名称": "Default name",
+  "额度总量": "Total amount of quota",
+  "飘在原处": "Float in place",
+  "香槟鎏金": "Champagne gilt",
+  "高峰时段": "Peak hours",
+  "鲸鱼轮廓": "Whale silhouette",
+  "默认字体": "Default font",
+  "默认角色": "Default role",
+  "（内置）": "(Built-in)",
+  "（只有 ": "(Only",
+  "（汇率 ": "(Exchange rate",
+  "（点按）": "(Tap)",
+  "，当前 ": ", Currently",
+  " 与 ": " With",
+  " 余额": " Balance",
+  " 分 ": " Points",
+  " 副本": " Copy",
+  " 天)": " Days)",
+  " 字)": " Words)",
+  " 字段": " Field",
+  " 由 ": " By",
+  " 的 ": " Of",
+  "(空)": "(Empty)",
+  "」吗？": "\"?\"",
+  "」整节": "\"The whole section",
+  "下划线": "Underline",
+  "不一致": "Inconsistent",
+  "不可用": "Not available",
+  "不存在": "Does not exist",
+  "不改动": "No change",
+  "不能改": "Cannot be changed",
+  "不重置": "No reset",
+  "个模块": "Modules",
+  "今日 ": "Today",
+  "余额 ": "Balance",
+  "余额·": "Balance ·",
+  "保存后": "After saving",
+  "倒计时": "Countdown",
+  "共同值": "Common value",
+  "内容盒": "Content box",
+  "内置图": "Built-in graph",
+  "凭据名": "Credential name",
+  "刚续过": "Just renewed",
+  "半截活": "Half life",
+  "另有 ": "Also",
+  "可点关": "Can be clicked to close",
+  "响两次": "Ring twice",
+  "图片框": "Picture frame",
+  "大泡泡": "Big bubble",
+  "天窗口": "Sky window",
+  "失败：": "Failure:",
+  "客户端": "Client",
+  "对话名": "Session name",
+  "小泡泡": "Little bubble",
+  "小鲸鱼": "Whale",
+  "小黄鸭": "Little yellow duck",
+  "已关闭": "Off",
+  "已启用": "Enabled",
+  "已找到": "Found",
+  "已显示": "Shown",
+  "已用 ": "Used",
+  "已记 ": "Already recorded",
+  "并应用": "And apply",
+  "开/关": "On/off",
+  "开发版": "Development version",
+  "开回来": "Drive back",
+  "恢复为": "Revert to",
+  "报错条": "Error message",
+  "拖动中": "Dragging",
+  "按压:": "Press:",
+  "数据·": "Data ·",
+  "新→旧": "New→old",
+  "新内容": "New",
+  "新句子": "New sentence",
+  "新模型": "New model",
+  "新角色": "New role",
+  "无挂起": "No hang",
+  "旧假设": "Old hypothesis",
+  "有填充": "There is padding",
+  "有改动": "There are changes",
+  "有没有": "Is there any",
+  "未启用": "Not enabled",
+  "未找到": "Not found",
+  "未接入": "Not connected",
+  "未订阅": "Not subscribed",
+  "未配置": "Not configured",
+  "本月 ": "This month",
+  "梁文峰": "Liang Wenfeng",
+  "梁文谷": "Liang Wengu",
+  "次点击": "Clicks",
+  "正式版": "Official version",
+  "没声音": "No sound",
+  "没生效": "Not effective",
+  "没登录": "Not logged in",
+  "没被拒": "Not rejected",
+  "泡泡图": "Bubble chart",
+  "泡泡框": "Bubble frame",
+  "点不动": "Can't move",
+  "点得到": "Click to get",
+  "的资源": "Resources",
+  "看不见": "Can't see",
+  "知道了": "Got it",
+  "空闲色": "Idle color",
+  "编辑 ": "Edit",
+  "网页端": "Web page",
+  "翻转线": "Flip line",
+  "自定义": "Customize",
+  "被点掉": "Clicked out",
+  "观测 ": "Observation",
+  "角色 ": "Role",
+  "该厂商": "The manufacturer",
+  "该显示": "The display",
+  "请求体": "Request body",
+  "请求头": "Request header",
+  "读不到": "Can't read",
+  "超链接": "Hyperlink",
+  "跑马灯": "Marquee",
+  "透明度": "Transparency",
+  "通过（": "By (",
+  "音效1": "Sound effects 1",
+  "音效组": "Sound set",
+  "预设组": "Default group",
+  "额度 ": "Quota",
+  "额度·": "Quota·",
+  "马卡龙": "Macarons",
+  "高峰色": "Peak color",
+  "默认红": "Default red",
+  "默认绿": "Default green",
+  "（共 ": "(Total",
+  "（源 ": "(Source",
+  " 个": " A",
+  " 元": " Yuan",
+  " 分": " Points",
+  " 天": "Day",
+  " 条": " Article",
+  " 泡": " Bubble",
+  " 秒": " Seconds",
+  "A泡": "A bubble",
+  "B泡": "B bubble",
+  "一致": "Consistent",
+  "丢了": "Lost",
+  "今天": "Today",
+  "今日": "Today",
+  "仓库": "Warehouse",
+  "仿宋": "Imitation of Song Dynasty",
+  "位移": "Displacement",
+  "保存": "Save",
+  "保底": "Guaranteed",
+  "全开": "Fully open",
+  "全选": "Select all",
+  "共 ": "Total",
+  "关闭": "Close",
+  "内容": "Content",
+  "分钟": "Minutes",
+  "切换": "Switch",
+  "删除": "Delete",
+  "刷新": "Refresh",
+  "剩余": "Remaining",
+  "加粗": "Bold",
+  "单价": "Unit price",
+  "单位": "Unit",
+  "压扁": "Flatten",
+  "取消": "Cancel",
+  "变钝": "Dull",
+  "句子": "Sentence",
+  "另存": "Save as",
+  "名称": "Name",
+  "启用": "Enable",
+  "啦~": "La~",
+  "图片": "Image",
+  "复活": "Resurrection",
+  "外观": "Appearance",
+  "外面": "Outside",
+  "多个": "Multiple",
+  "大小": "Size",
+  "失效": "Invalid",
+  "失败": "Failed",
+  "字体": "Font",
+  "字号": "Size",
+  "宋体": "Song Dynasty",
+  "宽度": "Width",
+  "密钥": "API key",
+  "导入": "Import",
+  "小时": "Hours",
+  "层级": "Hierarchy",
+  "展开": "Expand",
+  "已用": "Used",
+  "币种": "Currency",
+  "底色": "Background",
+  "张)": "Zhang)",
+  "总量": "Total amount",
+  "成功": "Success",
+  "抓紧": "Hurry up",
+  "按住": "Press and hold",
+  "按压": "Press",
+  "授权": "Authorize",
+  "描边": "Stroke",
+  "提示": "Tips",
+  "提问": "Ask a question",
+  "播放": "Play",
+  "操作": "Operation",
+  "收起": "Close",
+  "文本": "Text",
+  "斜体": "Italic",
+  "旋转": "Rotate",
+  "日 ": "Day",
+  "日期": "Date",
+  "有 ": "Yes",
+  "未填": "Not filled in",
+  "未知": "Unknown",
+  "本月": "This month",
+  "权重": "Weight",
+  "条)": "Article)",
+  "松开": "Loosen",
+  "标签": "Label",
+  "校正": "Correction",
+  "样式": "Style",
+  "楷体": "Regular script",
+  "模块": "Module",
+  "汇率": "exchange rate",
+  "状态": "Status",
+  "画底": "Bottom of painting",
+  "盖掉": "Cover it up",
+  "确定": "OK",
+  "确认": "Confirm",
+  "移除": "Remove",
+  "空值": "Null value",
+  "等线": "Isoline",
+  "管理": "Manage",
+  "类型": "Type",
+  "糖果": "Candy",
+  "纯色": "Solid",
+  "缓冲": "Buffer",
+  "编辑": "Edit",
+  "缩放": "Zoom",
+  "置顶": "Pin to top",
+  "翠青": "Verdant",
+  "自动": "Auto",
+  "自检": "Self-check",
+  "色值": "Color value",
+  "菜单": "Menu",
+  "虚线": "Dashed line",
+  "补量": "Supplement",
+  "角色": "Character",
+  "记账": "Accounting",
+  "设置": "Settings",
+  "试听": "Preview",
+  "账户": "Account",
+  "贴住": "Stick",
+  "贴手": "Friendly",
+  "赠金": "Bonus",
+  "超时": "Timeout",
+  "输出": "Output",
+  "进场": "Enter the market",
+  "选择": "Select",
+  "酒红": "Wine red",
+  "重置": "Reset",
+  "重试": "Retry",
+  "链接": "Link",
+  "音频": "Audio",
+  "预览": "Preview",
+  "预设": "Preset",
+  "颜色": "Color",
+  "额度": "Quota",
+  "首节": "First quarter",
+  "黑体": "Black body",
+  "默认": "Default",
+  "万": "Million",
+  "亿": "Billion",
+  "否": "No",
+  "周": "Week",
+  "啪": "Snap",
+  "天": "Day",
+  "宽": "Wide",
+  "峰": "Peak",
+  "开": "Open",
+  "无": "None",
+  "是": "Yes",
+  "月": "Month",
+  "框": "Box",
+  "活": "Live",
+  "秒": "Seconds",
+  "第": "No.",
+  "落": "Fall",
+  "谷": "Valley",
+  "选": "Choose",
+  "高": "High",
+  "黏": "Sticky",
+  "语言": "Language",
+  "中文": "中文",
+  "English": "English",
+  "添加": "Add",
+  "另存为": "Save as",
+  "新建": "New",
+  "停止": "Stop",
+  "下载": "Download",
+  "打开": "Open",
+  "搜索": "Search",
+  "清空": "Clear",
+  "返回": "Back",
+  "完成": "Done",
+  "应用": "Apply",
+  "余额未刷新": "Balance not refreshed",
+  "暂无": "None",
+  "暂无数据": "No data",
+  "删除失败": "Delete failed",
+  "复制": "Copy",
+  "已复制": "Copied",
+  "复制失败": "Copy failed",
+  "小鲸鱼记账": "Whale Ledger",
+  "提醒 / 预算 / 额度": "Alerts / budget / quota",
+  "关于": "About",
+  "消费记录": "Usage records",
+  "暂无消费记录": "No usage records today",
+  "音量": "Volume",
+  "音效总开关": "Master sound",
+  "子智能体完成时不提示": "Don't notify when a subagent finishes",
+  "跟随按压音量": "Follow press volume",
+  "余额 ≤": "Balance ≤",
+  "今日已用 ≥": "Today ≥",
+  "告警": "Alert",
+  "预算": "Budget",
+  "总余额": "Total balance",
+  "次/分钟": "req/min",
+  "泡泡最多": "Max bubbles",
+  "同一行最多": "Max per row",
+  "模块库": "Module library",
+  "首次点击": "First click",
+  "点击序列": "Click sequence",
+  "点击角色推进队列": "Advance queue on click",
+  "今日已用 / 额度": "Used / quota",
+  "数据来自 SoCLaaS /api-key/budget；日/月额度按 UTC 重置，上面已换算成本地时间。": "Data from SoCLaaS /api-key/budget; daily/monthly limits reset in UTC and are shown in local time.",
+  "本月额度": "Monthly quota",
+  "今日额度": "Daily quota",
+  "未配置 SOCLAAS_API_KEY（DSH 凭据）": "SOCLAAS_API_KEY is not configured (DSH credentials)",
+  "接口返回结构异常": "Unexpected API response",
+  "余额服务异常": "Balance service error",
+  "当前服务还没接入余额查询": "Balance lookup is not available for the current provider yet",
+  "点击重试": "Click to retry",
+  "余额": "Balance",
+  "示例：今天也要好好记账！": "Example: keep tracking today!",
+  "今日 $x · 本月 y%": "Today $x · This month y%",
+  "额度·加载中…": "Quota · loading…",
+  "自动 · 中文": "Auto · 中文",
+  "自动 · English": "Auto · English",
+  "数据来自 SoCLaaS /api-key/budget；日/月额度按 UTC 重置，上面已换算成本地时间。每轮消耗按 /v1/models 单价估算": "Data from SoCLaaS /api-key/budget; daily/monthly limits reset in UTC and are shown in local time. Per-turn cost is estimated from /v1/models pricing",
+  "处「第 n 次点击」使用 —— 保存时会自动改回保底框。": "Used at \"click n\" — it reverts to the fallback frame when saving.",
+  "处泡泡原本用的框已删除，已改回保底框": "The bubble's original frame was deleted; reverted to the fallback frame.",
+  "天来自历史记账本，已按「已观测消费 · 历史账户」显示，未与当前账户相加": " days from the historical ledger, shown as \"Observed spend · historical account\"; not added to the current account.",
+  "字段值（不是": "field value (not",
+  "守卫** —— 菜单关闭时它是靠祖先的": "guard** — when the menu is closed it relies on the ancestor's",
+  "居中显示的 ⇒ 先算出": "centered, so first calculate",
+  "是否冒泡、": "whether to bubble,",
+  "是扁平条目数组，": "is a flat entry array,",
+  "是一次**挂起**的工具调用 —— 模型发出后 DSH 追加": "is a **pending** tool call — after the model sends it, DSH appends",
+  "是 TIME_LIMIT，max 账号": "is TIME_LIMIT; max accounts",
+  "已是 null ⇒": "is already null ⇒",
+  "改为": "changed to",
+  "改成了": "changed to",
+  "无 |": "none |",
+  "早已被": "already",
+  "每轮消耗按 /v1/models 单价估算": "Per-turn cost is estimated from /v1/models pricing",
+  "自动关": "Auto-close",
+  "月度额度": "Monthly quota"
+};
+  var PHRASES = [
+  [
+    "只允许出现在本函数与它自己的定义处",
+    "may only appear in this function and its own definition"
+  ],
+  [
+    "SoCLaaS 预算接口请求失败",
+    "SoCLaaS budget request failed"
+  ],
+  [
+    "今日/近7天/全部消费记录",
+    "today / last 7 days / all usage records"
+  ],
+  [
+    "个引用该模型的泡泡模块",
+    "bubble modules referencing this model"
+  ],
+  [
+    "账号余额接口调用失败",
+    "Account balance API call failed"
+  ],
+  [
+    "API key 路：",
+    "API key: "
+  ],
+  [
+    "换过 API key",
+    "changed API key"
+  ],
+  [
+    "泡泡原本用的框已删除",
+    "the bubble's original frame was deleted"
+  ],
+  [
+    "在部分实现里会被当成",
+    "is treated as in some implementations"
+  ],
+  [
+    "账号余额接口未就绪",
+    "Account balance API not ready"
+  ],
+  [
+    "· 今日为部分数据",
+    "· Today is partial data"
+  ],
+  [
+    "个模块,无法再加入",
+    "more modules cannot be added"
+  ],
+  [
+    "个模块,无法再并入",
+    "modules cannot be merged"
+  ],
+  [
+    "余额接口请求失败",
+    "Balance API request failed"
+  ],
+  [
+    "· 有待核对调整",
+    "· Pending adjustment"
+  ],
+  [
+    "· 跟随按压音量",
+    "· Follow press volume"
+  ],
+  [
+    "始终用内置峰谷价",
+    "always uses built-in peak/off-peak pricing"
+  ],
+  [
+    "没接入余额查询",
+    "has no balance lookup yet"
+  ],
+  [
+    "· 余额未刷新",
+    "· Balance not refreshed"
+  ],
+  [
+    "已加入模型列表",
+    "Added to model list"
+  ],
+  [
+    "今日为部分数据",
+    "Today is partial data"
+  ],
+  [
+    "第 n 次点击",
+    "click n"
+  ],
+  [
+    "展开出来的地址",
+    "expanded address"
+  ],
+  [
+    "也只有一个槽位",
+    "has only one slot"
+  ],
+  [
+    "余额获取失败",
+    "Failed to fetch balance"
+  ],
+  [
+    "余额服务异常",
+    "Balance service error"
+  ],
+  [
+    "设置保存失败",
+    "Failed to save settings"
+  ],
+  [
+    "记录加载失败",
+    "Failed to load records"
+  ],
+  [
+    "正在刷新余额",
+    "Refreshing balance"
+  ],
+  [
+    "日/月额度按",
+    "Daily/monthly limits reset"
+  ],
+  [
+    "凭据读取失败",
+    "Credential read failed"
+  ],
+  [
+    "账号登录路：",
+    "Account login: "
+  ],
+  [
+    "· 数据目录",
+    "· Data directory"
+  ],
+  [
+    "· 无待核对",
+    "· No pending review"
+  ],
+  [
+    "· 今日完整",
+    "· Today is complete"
+  ],
+  [
+    "已观测消费",
+    "Observed spend"
+  ],
+  [
+    "每轮消耗按",
+    "Per-turn cost is estimated"
+  ],
+  [
+    "返回主菜单",
+    "Back to main menu"
+  ],
+  [
+    "· 已运行",
+    "· Running"
+  ],
+  [
+    "· 来源:",
+    "· Source:"
+  ],
+  [
+    "· 近7天",
+    "· Last 7 days"
+  ],
+  [
+    "个会话文件",
+    "session files"
+  ],
+  [
+    "个超大日志",
+    "huge logs"
+  ],
+  [
+    "余额未刷新",
+    "Balance not refreshed"
+  ],
+  [
+    "未配置汇率",
+    "exchange rate is not configured"
+  ],
+  [
+    "历史记账本",
+    "historical ledger"
+  ],
+  [
+    "菜单关闭时",
+    "when the menu is closed"
+  ],
+  [
+    "会先被压成",
+    "is first compressed to"
+  ],
+  [
+    "万一残留成",
+    "if it remains"
+  ],
+  [
+    "把菜单挂到",
+    "attach the menu to"
+  ],
+  [
+    "余额来源",
+    "Balance source"
+  ],
+  [
+    "今日已用",
+    "Today"
+  ],
+  [
+    "本月已用",
+    "Used this month"
+  ],
+  [
+    "今日剩余",
+    "Today remaining"
+  ],
+  [
+    "北京时间",
+    "Beijing time"
+  ],
+  [
+    "本地时间",
+    "local time"
+  ],
+  [
+    "仅显示前",
+    "showing first"
+  ],
+  [
+    "获取失败",
+    "Failed"
+  ],
+  [
+    "保存失败",
+    "Save failed"
+  ],
+  [
+    "读取失败",
+    "Load failed"
+  ],
+  [
+    "加载失败",
+    "Load failed"
+  ],
+  [
+    "测试失败",
+    "Test failed"
+  ],
+  [
+    "刷新失败",
+    "Refresh failed"
+  ],
+  [
+    "删除失败",
+    "Delete failed"
+  ],
+  [
+    "当前服务",
+    "Current provider"
+  ],
+  [
+    "余额接口",
+    "Balance API"
+  ],
+  [
+    "预算接口",
+    "Budget API"
+  ],
+  [
+    "正在保存",
+    "Saving"
+  ],
+  [
+    "余额获取",
+    "Balance fetch"
+  ],
+  [
+    "本地估算",
+    "Local estimate"
+  ],
+  [
+    "次/分钟",
+    "req/min"
+  ],
+  [
+    "数据来自",
+    "Data from"
+  ],
+  [
+    "请求失败",
+    "request failed"
+  ],
+  [
+    "重置时间",
+    "reset time"
+  ],
+  [
+    "额度数据",
+    "quota data"
+  ],
+  [
+    "余额不足",
+    "Insufficient balance"
+  ],
+  [
+    "调用失败",
+    "call failed"
+  ],
+  [
+    "· 峰值",
+    "· Peak"
+  ],
+  [
+    "· 延后",
+    "· Postponed"
+  ],
+  [
+    "· 片段",
+    "· Clip"
+  ],
+  [
+    "· 累计",
+    "· Cumulative"
+  ],
+  [
+    "个记账本",
+    "ledgers"
+  ],
+  [
+    "最近观测",
+    "Latest observation"
+  ],
+  [
+    "起点余额",
+    "Opening balance"
+  ],
+  [
+    "今日完整",
+    "Today is complete"
+  ],
+  [
+    "编辑内容",
+    "Edit content"
+  ],
+  [
+    "内置模型",
+    "Built-in model"
+  ],
+  [
+    "元时提醒",
+    "CNY threshold"
+  ],
+  [
+    "模型面板",
+    "Model panel"
+  ],
+  [
+    "历史账户",
+    "historical account"
+  ],
+  [
+    "有效音频",
+    "valid audio"
+  ],
+  [
+    "尚未实现",
+    "not implemented yet"
+  ],
+  [
+    "经典形状",
+    "classic shape"
+  ],
+  [
+    "居中显示",
+    "centered display"
+  ],
+  [
+    "都必须带",
+    "must include"
+  ],
+  [
+    "两个模式",
+    "two modes"
+  ],
+  [
+    "内容落在",
+    "content is under"
+  ],
+  [
+    "人民币",
+    "CNY"
+  ],
+  [
+    "笔明细",
+    "entries"
+  ],
+  [
+    "未配置",
+    "Not configured"
+  ],
+  [
+    "日额度",
+    "daily quota"
+  ],
+  [
+    "月额度",
+    "monthly quota"
+  ],
+  [
+    "请稍后",
+    "Please try again later"
+  ],
+  [
+    "未就绪",
+    "not ready"
+  ],
+  [
+    "登录路",
+    "login path"
+  ],
+  [
+    "· 剩",
+    "· left"
+  ],
+  [
+    "· 周",
+    "· week"
+  ],
+  [
+    "个模块",
+    "modules"
+  ],
+  [
+    "待核对",
+    "Pending review"
+  ],
+  [
+    "它正被",
+    "It is being"
+  ],
+  [
+    "不再有",
+    "no longer"
+  ],
+  [
+    "泡泡图",
+    "bubble image"
+  ],
+  [
+    "不生效",
+    "not applied"
+  ],
+  [
+    "个会话",
+    "sessions"
+  ],
+  [
+    "个位置",
+    "positions"
+  ],
+  [
+    "再加入",
+    "add more"
+  ],
+  [
+    "时提醒",
+    "threshold"
+  ],
+  [
+    "保存时",
+    "when saving"
+  ],
+  [
+    "保底框",
+    "fallback frame"
+  ],
+  [
+    "已改回",
+    "reverted to"
+  ],
+  [
+    "先算出",
+    "first calculate"
+  ],
+  [
+    "祖先的",
+    "ancestor's"
+  ],
+  [
+    "只属于",
+    "only belongs to"
+  ],
+  [
+    "一起由",
+    "together by"
+  ],
+  [
+    "自动关",
+    "Auto-close"
+  ],
+  [
+    "为静音",
+    "is muted"
+  ],
+  [
+    "余额",
+    "Balance"
+  ],
+  [
+    "额度",
+    "Quota"
+  ],
+  [
+    "已用",
+    "Used"
+  ],
+  [
+    "剩余",
+    "Remaining"
+  ],
+  [
+    "今日",
+    "Today"
+  ],
+  [
+    "本月",
+    "This month"
+  ],
+  [
+    "刷新",
+    "Refresh"
+  ],
+  [
+    "保存",
+    "Save"
+  ],
+  [
+    "取消",
+    "Cancel"
+  ],
+  [
+    "删除",
+    "Delete"
+  ],
+  [
+    "关闭",
+    "Close"
+  ],
+  [
+    "设置",
+    "Settings"
+  ],
+  [
+    "提示",
+    "Prompt"
+  ],
+  [
+    "音效",
+    "Sound"
+  ],
+  [
+    "音频",
+    "Audio"
+  ],
+  [
+    "图片",
+    "Image"
+  ],
+  [
+    "颜色",
+    "Color"
+  ],
+  [
+    "字号",
+    "Size"
+  ],
+  [
+    "权重",
+    "Weight"
+  ],
+  [
+    "失败",
+    "Failed"
+  ],
+  [
+    "成功",
+    "Success"
+  ],
+  [
+    "未知",
+    "Unknown"
+  ],
+  [
+    "默认",
+    "Default"
+  ],
+  [
+    "自动",
+    "Auto"
+  ],
+  [
+    "角色",
+    "Character"
+  ],
+  [
+    "泡泡",
+    "Bubble"
+  ],
+  [
+    "对话",
+    "Session"
+  ],
+  [
+    "模型",
+    "Model"
+  ],
+  [
+    "密钥",
+    "API key"
+  ],
+  [
+    "接口",
+    "API"
+  ],
+  [
+    "请求",
+    "Request"
+  ],
+  [
+    "错误",
+    "Error"
+  ],
+  [
+    "状态",
+    "Status"
+  ],
+  [
+    "记录",
+    "Records"
+  ],
+  [
+    "详情",
+    "Details"
+  ],
+  [
+    "编辑",
+    "Edit"
+  ],
+  [
+    "恢复",
+    "Restore"
+  ],
+  [
+    "确认",
+    "Confirm"
+  ],
+  [
+    "启用",
+    "Enable"
+  ],
+  [
+    "禁用",
+    "Disable"
+  ],
+  [
+    "重置",
+    "Reset"
+  ],
+  [
+    "订阅",
+    "Subscription"
+  ],
+  [
+    "赠金",
+    "Bonus"
+  ],
+  [
+    "充值",
+    "Top-up"
+  ],
+  [
+    "美元",
+    "USD"
+  ],
+  [
+    "分钟",
+    "min"
+  ],
+  [
+    "小时",
+    "h"
+  ],
+  [
+    "该日",
+    "that day"
+  ],
+  [
+    "汇率",
+    "exchange rate"
+  ],
+  [
+    "查看",
+    "View"
+  ],
+  [
+    "请先",
+    "Please first "
+  ],
+  [
+    "点击",
+    "Click "
+  ],
+  [
+    "打开",
+    "Open "
+  ],
+  [
+    "显示",
+    "Show "
+  ],
+  [
+    "隐藏",
+    "Hide "
+  ],
+  [
+    "最多",
+    "Max "
+  ],
+  [
+    "至少",
+    "At least "
+  ],
+  [
+    "账号",
+    "Account"
+  ],
+  [
+    "上次",
+    "Last"
+  ],
+  [
+    "当前",
+    "Current"
+  ],
+  [
+    "片段",
+    "Clip"
+  ],
+  [
+    "累计",
+    "Cumulative"
+  ],
+  [
+    "来源",
+    "Source"
+  ],
+  [
+    "跳过",
+    "Skipped"
+  ],
+  [
+    "副本",
+    "copy"
+  ],
+  [
+    "填写",
+    "Fill in"
+  ],
+  [
+    "单价",
+    "unit price"
+  ],
+  [
+    "引用",
+    "referencing"
+  ],
+  [
+    "无法",
+    "cannot"
+  ],
+  [
+    "并入",
+    "merge"
+  ],
+  [
+    "位置",
+    "position"
+  ],
+  [
+    "会话",
+    "session"
+  ],
+  [
+    "部分",
+    "part"
+  ],
+  [
+    "完整",
+    "complete"
+  ],
+  [
+    "核对",
+    "review"
+  ],
+  [
+    "调整",
+    "adjustment"
+  ],
+  [
+    "未与",
+    "not added to"
+  ],
+  [
+    "相加",
+    "added"
+  ],
+  [
+    "使用",
+    "using"
+  ],
+  [
+    "改回",
+    "reverts to"
+  ],
+  [
+    "字段",
+    "field"
+  ],
+  [
+    "字节",
+    "bytes"
+  ],
+  [
+    "不是",
+    "is not"
+  ],
+  [
+    "暂按",
+    "temporarily uses"
+  ],
+  [
+    "渲染",
+    "render"
+  ],
+  [
+    "守卫",
+    "guard"
+  ],
+  [
+    "不要",
+    "do not"
+  ],
+  [
+    "仍在",
+    "still in"
+  ],
+  [
+    "净化",
+    "sanitization"
+  ],
+  [
+    "落盘",
+    "persistence"
+  ],
+  [
+    "保底",
+    "fallback"
+  ],
+  [
+    "修改",
+    "change"
+  ],
+  [
+    "下拉",
+    "dropdown"
+  ],
+  [
+    "共",
+    "Total"
+  ],
+  [
+    "请",
+    "Please "
+  ],
+  [
+    "剩",
+    "left"
+  ],
+  [
+    "周",
+    "week"
+  ],
+  [
+    "元",
+    "CNY"
+  ],
+  [
+    "分",
+    "min"
+  ],
+  [
+    "图",
+    "image"
+  ],
+  [
+    "且",
+    "and"
+  ],
+  [
+    "头",
+    "header"
+  ],
+  [
+    "天",
+    "days"
+  ],
+  [
+    "框",
+    "frame"
+  ]
+];
+  var PATTERNS = [
+    [/^(\d+)\s*个$/, '$1'],
+    [/^(\d+)\s*个会话$/, '$1 sessions'],
+    [/^(\d+)\s*个位置.*$/, '$1 positions'],
+    [/^(\d+)\s*个模块.*$/, '$1 modules'],
+    [/^(\d+)\s*个引用.*$/, '$1 referencing'],
+
+    [/^(\d+(?:\.\d+)?)\s*元$/, '$1 CNY'],
+    [/^(\d+(?:\.\d+)?)\s*元时提醒$/, 'Alert at $1 CNY'],
+    [/^(\d+)\s*个会话文件$/, '$1 session files'],
+    [/^(\d+)\s*个超大日志$/, '$1 huge logs'],
+    [/^(\d+)\s*行$/, '$1 rows'],
+
+    [/^账号余额接口调用失败:\s*(.+)$/, 'Account balance API call failed: $1'],
+    [/^余额\s*—（该厂商无余额接口，按[^）]*）\s*·\s*今日已用\s*(.+)$/, 'Balance — (no balance API; estimated from session events) · Today $1'],
+
+  [/^余额\s+(.+?)\s*·\s*今日已用\s+(.+)$/, 'Balance $1 · Today $2'],
+  [/^余额\s*—（该厂商无余额接口，按会话事件估算）·\s*今日已用\s*(.+)$/, 'Balance — (no balance API; estimated from session events) · Today $1'],
+  [/^今日已用\s+(.+)$/, 'Today $1'],
+  [/^本月已用\s+(.+)$/, 'Used this month $1'],
+  [/^已用\s+(.+?)\s*\/\s*额度\s+(.+)$/, 'Used $1 / quota $2'],
+  [/^已用\s+(.+)$/, 'Used $1'],
+  [/^额度\s+(.+)$/, 'Quota $1'],
+  [/^剩余\s+(.+)$/, 'Remaining $1'],
+  [/^第\s*(\d+)\s*次点击$/, 'Click $1'],
+  [/^共\s*(\d+)\s*笔明细(.*)$/, '$1 entries$2'],
+  [/^该日共\s*(\d+)\s*条,仅显示前\s*(\d+)\s*条$/, '$1 entries, showing first $2'],
+  [/^SoCLaaS 预算接口请求失败:\s*(.+)$/, 'SoCLaaS budget request failed: $1'],
+  [/^SOCLAAS_API_KEY 无效或已过期（HTTP (\d+)）$/, 'SOCLAAS_API_KEY is invalid or expired (HTTP $1)'],
+  [/^当前服务「(.+)」还没接入余额查询$/, 'Balance lookup is not available for "$1" yet'],
+  [/^余额服务异常:\s*(.+)$/, 'Balance service error: $1'],
+  [/^保存失败:\s*(.+)$/, 'Save failed: $1'],
+  [/^测试失败:\s*(.+)$/, 'Test failed: $1'],
+  [/^(\d+)\s*秒$/, '$1s'],
+  [/^(\d+)\s*分钟$/, '$1 min'],
+  [/^(\d+)\s*小时$/, '$1h'],
+];
+  // 长尾兜底：把已知文案当作子串匹配（只对插件 UI，不碰用户自定义泡泡文本）。
+  var I18N_TRIE = (function () {
+    var root = { ch: {}, val: null };
+    var count = 0;
+    for (var key in EN) {
+      if (!Object.prototype.hasOwnProperty.call(EN, key)) continue;
+      if (key.length < 2) continue;
+      if (/[<>{}\/]/.test(key)) continue; // HTML/模板/路径交给精确匹配
+      var node = root;
+      for (var i = 0; i < key.length; i++) {
+        var c = key.charAt(i);
+        node = node.ch[c] || (node.ch[c] = { ch: {}, val: null });
+      }
+      node.val = EN[key];
+      count++;
+    }
+    return { root: root, count: count };
+  })();
+  function substringTranslate(s) {
+    var root = I18N_TRIE.root, out = '', i = 0;
+    while (i < s.length) {
+      var node = root, j = i, best = null;
+      while (j < s.length) {
+        node = node.ch[s.charAt(j)];
+        if (!node) break;
+        j++;
+        if (node.val) best = { end: j, val: node.val };
+      }
+      if (best) { out += best.val; i = best.end; }
+      else { out += s.charAt(i); i++; }
+    }
+    return out;
+  }
+  var MODE_KEY = 'dshw-lang';
+  var mode = 'auto';
+  try {
+    var saved = localStorage.getItem(MODE_KEY);
+    if (saved === 'auto' || saved === 'zh' || saved === 'en') mode = saved;
+  } catch (err) {}
+  var lang = 'zh';
+  var started = false;
+  var observer = null;
+  lang = computeLang();
+
+  function detect() {
+    try {
+      var list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ''];
+      for (var i = 0; i < list.length; i++) {
+        if (/^zh(\b|[-_])/i.test(String(list[i])) || String(list[i]).toLowerCase() === 'zh') return 'zh';
+      }
+      return 'en';
+    } catch (err) { return 'zh' }
+  }
+  function computeLang() { return mode === 'auto' ? detect() : mode; }
+  function normalize(s) {
+    return String(s)
+      .replace(/；/g, '; ').replace(/，/g, ', ').replace(/：/g, ': ')
+      .replace(/。/g, '. ').replace(/！/g, '! ').replace(/？/g, '? ')
+      .replace(/（/g, ' (').replace(/）/g, ') ').replace(/、/g, ', ')
+      .replace(/[「『]/g, '"').replace(/[」』]/g, '"')
+      .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+      .replace(/…/g, '...')
+      .replace(/[ \t]{2,}/g, ' ');
+  }
+  function phrase(s) {
+    for (var i = 0; i < PHRASES.length; i++) {
+      var p = PHRASES[i];
+      if (s.indexOf(p[0]) !== -1) s = s.split(p[0]).join(p[1]);
+    }
+    return s;
+  }
+  function translateCore(core, opts) {
+    if (EN[core] !== undefined) return EN[core];
+    if (opts && opts.exactOnly) return null;
+    var noSubstring = !!(opts && opts.noSubstring);
+    var changed = false;
+    for (var i = 0; i < PATTERNS.length; i++) {
+      if (PATTERNS[i][0].test(core)) { core = core.replace(PATTERNS[i][0], PATTERNS[i][1]); changed = true; break; }
+    }
+    // 先做“已知文案最长子串”匹配，避免短语表先把长句拆碎、导致长键再也匹配不上。
+    if (!noSubstring && /[\u4e00-\u9fff]/.test(core)) {
+      var q = substringTranslate(core);
+      if (q !== core) { core = q; changed = true; }
+    }
+    var p = phrase(core);
+    if (p !== core) { core = p; changed = true; }
+    return changed ? core : null;
+  }
+  function translate(text, opts) {
+    if (lang !== 'en' || text === null || text === undefined) return text;
+    var s = String(text);
+    if (!s) return s;
+    var lead = (s.match(/^\s*/) || [''])[0];
+    var trail = (s.match(/\s*$/) || [''])[0];
+    var core = s.slice(lead.length, s.length - trail.length);
+    if (!core) return s;
+    var out = translateCore(core, opts);
+    return out === null ? s : lead + normalize(out) + trail;
+  }
+  function t(s) {
+    if (lang !== 'en') return s;
+    if (EN[s] !== undefined) return normalize(EN[s]);
+    var out = translate(s);
+    return out === null ? s : normalize(out);
+  }
+  function label() {
+    if (mode === 'zh') return '中文';
+    if (mode === 'en') return 'English';
+    return lang === 'en' ? 'Auto · English' : '自动 · 中文';
+  }
+  function setMode(next) {
+    if (next !== 'auto' && next !== 'zh' && next !== 'en') return;
+    mode = next;
+    lang = computeLang();
+    try { localStorage.setItem(MODE_KEY, mode); } catch (err) {}
+    translateAll();
+    try { if (typeof render === 'function') render(); } catch (err) {}
+    try { if (typeof updateProviderUi === 'function') updateProviderUi(); } catch (err) {}
+    try { if (typeof setUsageNavBtn === 'function') setUsageNavBtn(false); } catch (err) {}
+    try { if (typeof usagePanelOpen !== 'undefined' && usagePanelOpen && typeof renderUsagePanel === 'function') renderUsagePanel(); } catch (err) {}
+    // render()/renderUsagePanel() 会重新写入中文源文案，再翻译一次新节点。
+    translateAll();
+  }
+  function cycle() {
+    var order = ['auto', 'zh', 'en'];
+    var i = order.indexOf(mode);
+    setMode(order[(i + 1) % order.length]);
+    return label();
+  }
+
+  function hasDshwClass(el) {
+    try {
+      var c = el && el.className;
+      if (typeof c !== 'string') return false;
+      return /(^|\s)dshwv-/.test(c);
+    } catch (err) { return false }
+  }
+  function inPlugin(el) {
+    for (var n = el; n && n.nodeType === 1; n = n.parentNode) {
+      if (hasDshwClass(n)) return true;
+      try { if (n.hasAttribute && n.hasAttribute('data-dshw-no-i18n')) return false } catch (err) {}
+    }
+    return false;
+  }
+  function skipElement(el) {
+    try {
+      var tag = String(el.tagName || '').toUpperCase();
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA' || tag === 'CODE' || tag === 'PRE') return true;
+      for (var n = el; n && n.nodeType === 1; n = n.parentNode) {
+        if (n.hasAttribute && n.hasAttribute('data-dshw-no-i18n')) return true;
+      }
+    } catch (err) {}
+    return false;
+  }
+  function inUserContent(el) {
+    for (var n = el; n && n.nodeType === 1; n = n.parentNode) {
+      try {
+        var c = n.className;
+        if (typeof c === 'string' && /(^|\s)(dshwv-text|dshwv-bubprev|dshwv-bubpvbox|dshwv-bubmini)(\s|$)/.test(c)) return true;
+        var tag = String(n.tagName || '').toUpperCase();
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+        if (n.getAttribute && n.getAttribute('contenteditable') === 'true') return true;
+      } catch (err) {}
+    }
+    return false;
+  }
+  function translateTextNode(node) {
+    try {
+      var p = node.parentNode;
+      if (!p || p.nodeType !== 1 || skipElement(p)) return;
+      var cur = node.nodeValue;
+      var rec = node.__dshwI18n;
+      var src = (rec && cur === rec.out) ? rec.src : cur;
+      if (src === null || src === undefined) return;
+      var out = translate(src, inUserContent(p) ? { exactOnly: true } : undefined);
+      node.__dshwI18n = { src: src, out: out };
+      if (out !== cur) node.nodeValue = out;
+    } catch (err) {}
+  }
+  function translateAttr(el, name) {
+    try {
+      var cur = el.getAttribute(name);
+      if (cur === null) return;
+      var map = el.__dshwI18nAttrs || (el.__dshwI18nAttrs = {});
+      var rec = map[name];
+      var src = (rec && cur === rec.out) ? rec.src : cur;
+      var out = translate(src);
+      map[name] = { src: src, out: out };
+      if (out !== cur) el.setAttribute(name, out);
+    } catch (err) {}
+  }
+  function translateAttrs(el) {
+    var names = ['title', 'placeholder', 'aria-label', 'alt'];
+    for (var i = 0; i < names.length; i++) translateAttr(el, names[i]);
+  }
+  function translateTree(root) {
+    if (!root) return;
+    if (root.nodeType === 3) { translateTextNode(root); return; }
+    if (root.nodeType !== 1 && root.nodeType !== 9) return;
+    if (root.nodeType === 1) translateAttrs(root);
+    try {
+      var walker = document.createTreeWalker(root, 4, null, false);
+      var node;
+      while ((node = walker.nextNode())) translateTextNode(node);
+    } catch (err) {}
+    try {
+      var els = root.querySelectorAll ? root.querySelectorAll('*') : [];
+      for (var i = 0; i < els.length; i++) translateAttrs(els[i]);
+    } catch (err) {}
+  }
+  function translateAll() {
+    if (typeof document === 'undefined' || !document.body) return;
+    try {
+      var all = document.querySelectorAll('[class]');
+      var roots = [];
+      for (var i = 0; i < all.length; i++) {
+        var el = all[i];
+        if (!hasDshwClass(el)) continue;
+        if (!inPlugin(el.parentNode)) roots.push(el);
+      }
+      for (var j = 0; j < roots.length; j++) translateTree(roots[j]);
+    } catch (err) {}
+  }
+  function start() {
+    if (started) return;
+    started = true;
+    lang = computeLang();
+    translateAll();
+    if (typeof MutationObserver !== 'function') return;
+    try {
+      observer = new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var m = muts[i];
+          if (m.type === 'childList') {
+            for (var j = 0; j < m.addedNodes.length; j++) {
+              var n = m.addedNodes[j];
+              if (n.nodeType === 3) {
+                if (n.parentNode && inPlugin(n.parentNode)) translateTextNode(n);
+              } else if (n.nodeType === 1) {
+                if (hasDshwClass(n) || inPlugin(n)) translateTree(n);
+              }
+            }
+          } else if (m.type === 'attributes') {
+            if (m.target && inPlugin(m.target)) translateAttr(m.target, m.attributeName);
+          }
+        }
+      });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['title', 'placeholder', 'aria-label', 'alt'],
+      });
+    } catch (err) {}
+  }
+  return {
+    start: start,
+    t: t,
+    translate: translate,
+    label: label,
+    cycle: cycle,
+    setMode: setMode,
+    getMode: function () { return mode; },
+    getLang: function () { return lang; },
+    translateAll: translateAll,
+  };
+})();
+
+
 // ===== 音效播放（v745：Web Audio + 预解码 + 同步起播 + 可调衔接）=====
 // 目标：既要 0.3.0 那种"贴手"的响应，又不让 macOS 把音效注册进系统「正在播放」（Touch Bar 播放条 + 卡顿）。
 // 之前 0.3.3~0.3.7 换成 Web Audio 后手感变钝，不是引擎的问题，而是丢了四样里的三样：
@@ -2186,6 +5325,25 @@ providerSourceBtn.addEventListener('click', function (e) { e.stopPropagation(); 
 rowSource.appendChild(sourceLabel)
 rowSource.appendChild(providerSourceBtn)
 menuBox.appendChild(rowSource)
+// —— 语言：自动跟随系统 / 手动中文 / English ——
+var rowLang = menuRow()
+var langLabel = menuLabel('语言')
+var langBtn = document.createElement('button')
+langBtn.type = 'button'
+langBtn.className = 'dshwv-roleimport'
+langBtn.style.flex = '1'
+langBtn.textContent = DSHW_I18N.label()
+langBtn.title = 'Language / 语言'
+langBtn.setAttribute('data-dshw-no-i18n', '1')
+langBtn.addEventListener('click', function (e) {
+  e.stopPropagation()
+  DSHW_I18N.cycle()
+  langLabel.textContent = DSHW_I18N.t('语言')
+  langBtn.textContent = DSHW_I18N.label()
+})
+rowLang.appendChild(langLabel)
+rowLang.appendChild(langBtn)
+menuBox.appendChild(rowLang)
 // —— 吸附与翻转：自定义按钮（打开吸附/翻转设置弹窗），放在“避让滚动条”下一行 ——
 var rowSnap = menuRow()
 var snapRowLabel = document.createElement('span')
@@ -2340,17 +5498,17 @@ var usageShowTimer = null
 function setUsageNavBtn(inUsage) {
   try {
     if (inUsage) {
-      usageRecBtn.textContent = '‹ 返回'
-      usageRecBtn.title = '返回主菜单'
+      usageRecBtn.textContent = DSHW_I18N.t('‹ 返回')
+      usageRecBtn.title = DSHW_I18N.t('返回主菜单')
       return
     }
     if (state.providerKind === 'soclaas') {
-      usageRecBtn.textContent = '- = SoCLaaS 额度 = -'
-      usageRecBtn.title = '查看 SoCLaaS 今日 / 本月额度与重置时间'
+      usageRecBtn.textContent = DSHW_I18N.t('- = SoCLaaS 额度 = -')
+      usageRecBtn.title = DSHW_I18N.t('查看 SoCLaaS 今日 / 本月额度与重置时间')
       return
     }
-    usageRecBtn.textContent = '- = 小鲸鱼记账 = -'
-    usageRecBtn.title = '查看今日/近7天/全部消费记录'
+    usageRecBtn.textContent = DSHW_I18N.t('- = 小鲸鱼记账 = -')
+    usageRecBtn.title = DSHW_I18N.t('查看今日/近7天/全部消费记录')
   } catch (err) {}
 }
 function showUsageSub() {
@@ -3187,7 +6345,13 @@ function soclaasResetLabel(iso, withDate) {
   if (!isFinite(d.getTime())) return '--'
   function p2(n) { return (n < 10 ? '0' : '') + n }
   var hm = p2(d.getHours()) + ':' + p2(d.getMinutes())
-  return withDate ? ((d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm) : hm
+  if (!withDate) return hm
+  var locale = DSHW_I18N.getLang() === 'en' ? 'en-US' : 'zh-CN'
+  try {
+    return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' }) + ' ' + hm
+  } catch (err) {
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hm
+  }
 }
 function soclaasBarRow(parent, label, pct) {
   var row = document.createElement('div')
@@ -3260,16 +6424,16 @@ function renderSoclaasPanel() {
   ov.appendChild(big)
   ov.appendChild(el('div', 'dshwv-usage-hint', '已用 ' + fmtUsd(d.spent) + ' / 额度 ' + (d.allowance === null || d.allowance === undefined ? '—' : fmtUsd(d.allowance))))
   body.appendChild(ov)
-  if (d.percent !== null && d.percent !== undefined) soclaasBarRow(body, '今日已用', d.percent)
+  if (d.percent !== null && d.percent !== undefined) soclaasBarRow(body, '已用', d.percent)
 
-  section('今日', d.percent !== null && d.percent !== undefined ? (Number(d.percent).toFixed(1) + '%') : '')
+  section(DSHW_I18N.t('今日额度'), d.percent !== null && d.percent !== undefined ? (Number(d.percent).toFixed(1) + '%') : '')
   row('已用', fmtUsd(d.spent))
   row('额度', d.allowance === null || d.allowance === undefined ? '—' : fmtUsd(d.allowance))
   row('剩余', d.remaining === null || d.remaining === undefined ? '—' : fmtUsd(d.remaining), 'dshwv-usage-total')
   row('重置（本地时间）', soclaasResetLabel(d.resetAt, false))
 
-  section('本月', m.percent !== null && m.percent !== undefined ? (Number(m.percent).toFixed(1) + '%') : '')
-  if (m.percent !== null && m.percent !== undefined) soclaasBarRow(body, '本月已用', m.percent)
+  section(DSHW_I18N.t('本月额度'), m.percent !== null && m.percent !== undefined ? (Number(m.percent).toFixed(1) + '%') : '')
+  if (m.percent !== null && m.percent !== undefined) soclaasBarRow(body, '已用', m.percent)
   row('已用', fmtUsd(m.spent))
   row('额度', m.allowance === null || m.allowance === undefined ? '—' : fmtUsd(m.allowance))
   row('剩余', m.remaining === null || m.remaining === undefined ? '—' : fmtUsd(m.remaining), 'dshwv-usage-total')
@@ -3277,12 +6441,14 @@ function renderSoclaasPanel() {
 
   section('账户')
   row('当前模型', state.model || sc.model || '—')
-  row('请求上限', sc.requestsPerMinute ? (sc.requestsPerMinute + ' 次/分钟') : '—')
+  row(DSHW_I18N.t('请求上限'), sc.requestsPerMinute ? (sc.requestsPerMinute + ' ' + DSHW_I18N.t('次/分钟')) : '—')
   row('赠送额度', sc.creditsRemaining === null || sc.creditsRemaining === undefined ? '—' : fmtUsd(sc.creditsRemaining))
   row('密钥', sc.apiKeyName ? (sc.apiKeyName + (sc.apiKeyPrefix ? ' · ' + sc.apiKeyPrefix : '')) : '—')
   row('数据更新', sc.updatedAt ? soclaasResetLabel(sc.updatedAt, true) : '—')
 
-  body.appendChild(el('div', 'dshwv-usage-hint', '数据来自 SoCLaaS /api-key/budget；日/月额度按 UTC 重置，上面已换算成本地时间。每轮消耗按 /v1/models 单价估算（汇率 ' + (sc.usdCny || '') + '）。'))
+  body.appendChild(el('div', 'dshwv-usage-hint',
+    DSHW_I18N.t('数据来自 SoCLaaS /api-key/budget；日/月额度按 UTC 重置，上面已换算成本地时间。') + ' ' +
+    DSHW_I18N.t('每轮消耗按 /v1/models 单价估算') + ' (' + DSHW_I18N.t('汇率') + ' ' + (sc.usdCny || '') + ').'))
   var b = el('button', 'dshwv-usage-more', '刷新额度')
   b.type = 'button'
   b.addEventListener('click', function (e) {
@@ -18119,7 +21285,7 @@ function bubbleContentText(m, autoTxt) {
   m = m || {}
   if (!m.tpl || !String(m.tpl).length) return autoTxt
   var map = bubbleContentTokenMap(m)
-  var s = String(m.tpl)
+  var s = DSHW_I18N.translate(String(m.tpl))
   var keys = Object.keys(map).sort(function (a, b) { return b.length - a.length })
   for (var i = 0; i < keys.length; i++) s = s.split('{' + keys[i] + '}').join(String(map[keys[i]]))
   return s
@@ -18408,7 +21574,7 @@ function bubbleRowContentOf(mod) {
   if (mod.type === 'recharge') return { txt: bubbleContentText(mod, bubbleRechargeText()), line: null }
   if (mod.type === 'today') {
     var tv2 = bubbleIsModelMod(mod) ? apiModelTodayText(mod.modelId) : (state.todayUsage !== null && state.todayUsage !== undefined ? fmt(state.todayUsage, state.todayUsageCurrency || state.currency) : '--')
-    return { txt: bubbleContentText(mod, '今日已用 ' + tv2), line: null }
+    return { txt: bubbleContentText(mod, DSHW_I18N.t('今日已用') + ' ' + tv2), line: null }
   }
   if (mod.type === 'session') {
     // v768：对话名模块（自动内容 = 截断后的对话名；留空 tpl 时直接用自动内容）
@@ -18442,7 +21608,7 @@ function bubbleRowContentOf(mod) {
       if (txt === 'DeepSeek 余额') txt = 'SoCLaaS 今日剩余'
       else if (txt === '总余额(充值金额+赠金)') txt = 'SoCLaaS 今日剩余'
     }
-    return { txt: txt, line: null }
+    return { txt: DSHW_I18N.translate(txt, { exactOnly: true }), line: null }
   }
   return { txt: mod.text || '', line: null }
 }
@@ -19192,10 +22358,10 @@ function soclaasHintText() {
   var d = sc.daily || null
   var m = sc.monthly || null
   var parts = []
-  if (d && d.spent !== null && d.spent !== undefined) parts.push('今日 ' + fmtUsd(d.spent))
-  if (m && m.percent !== null && m.percent !== undefined) parts.push('本月 ' + Number(m.percent).toFixed(1) + '%')
-  else if (m && m.spent !== null && m.spent !== undefined) parts.push('本月 ' + fmtUsd(m.spent))
-  return parts.length ? parts.join(' · ') : 'SoCLaaS 额度'
+  if (d && d.spent !== null && d.spent !== undefined) parts.push(DSHW_I18N.t('今日') + ' ' + fmtUsd(d.spent))
+  if (m && m.percent !== null && m.percent !== undefined) parts.push(DSHW_I18N.t('本月') + ' ' + Number(m.percent).toFixed(1) + '%')
+  else if (m && m.spent !== null && m.spent !== undefined) parts.push(DSHW_I18N.t('本月') + ' ' + fmtUsd(m.spent))
+  return parts.length ? parts.join(' · ') : DSHW_I18N.t('SoCLaaS 额度')
 }
 function fmt(balance, currency) {
   var num = Number(balance)
@@ -19242,18 +22408,18 @@ function providerModeText() {
     : (state.providerKind === 'deepseek' ? 'DeepSeek' : (state.providerName || '未接入'))
   if (state.providerMode === 'deepseek') return 'DeepSeek'
   if (state.providerMode === 'soclaas') return 'SoCLaaS'
-  return '自动 · ' + kindName
+  return DSHW_I18N.t('自动') + ' · ' + kindName
 }
 function updateProviderUi() {
   try {
-    img.alt = (state.providerName || 'DeepSeek') + ' 余额'
-    img.title = (state.providerName || 'DeepSeek') + ' 余额'
+    img.alt = (state.providerName || 'DeepSeek') + ' ' + DSHW_I18N.t('余额')
+    img.title = (state.providerName || 'DeepSeek') + ' ' + DSHW_I18N.t('余额')
   } catch (err) {}
   try {
     if (providerSourceBtn) providerSourceBtn.textContent = providerModeText()
   } catch (err) {}
   try {
-    if (!bubbleShown) labelEl.textContent = state.providerKind === 'soclaas' ? 'SoCLaaS 今日剩余' : 'DeepSeek 余额'
+    if (!bubbleShown) labelEl.textContent = DSHW_I18N.t(state.providerKind === 'soclaas' ? 'SoCLaaS 今日剩余' : 'DeepSeek 余额')
   } catch (err) {}
   try { if (!usagePanelOpen) setUsageNavBtn(false) } catch (err) {}
 }
@@ -19304,16 +22470,16 @@ function render() {
   var amount, hint
   if (state.status === 'error') {
     amount = shown !== null ? fmt(shown, state.currency) : '--'
-    hint = state.message ? state.message.slice(0, 14) : '获取失败 · 点击重试'
+    hint = state.message ? DSHW_I18N.translate(state.message).slice(0, 30) : DSHW_I18N.t('获取失败 · 点击重试')
   } else if (state.balance === null) {
     amount = shown !== null ? fmt(shown, state.currency) : '…'
-    hint = '加载中…'
+    hint = DSHW_I18N.t('加载中…')
   } else {
     amount = shown !== null ? fmt(shown, state.currency) : fmt(state.balance, state.currency)
     if (state.providerKind === 'soclaas') {
       hint = soclaasHintText()
     } else {
-      hint = (state.usageLabel || '今日已用') + ' ' + (state.todayUsage !== null && state.todayUsage !== undefined ? fmt(state.todayUsage, state.todayUsageCurrency || state.currency) : '--')
+      hint = DSHW_I18N.t(state.usageLabel || '今日已用') + ' ' + (state.todayUsage !== null && state.todayUsage !== undefined ? fmt(state.todayUsage, state.todayUsageCurrency || state.currency) : '--')
     }
   }
   amountEl.textContent = amount
@@ -21299,7 +24465,7 @@ function openAudioCrop(arrayBuf, fileName) {
     if (!audioCropCtx) {
       try { audioCropCtx = new (window.AudioContext || window.webkitAudioContext)() } catch (err) { audioCropCtx = null }
     }
-    if (!audioCropCtx) { alert('当前浏览器不支持音频解码'); return }
+    if (!audioCropCtx) { alert(DSHW_I18N.t('当前浏览器不支持音频解码')); return }
     audioCropCtx.decodeAudioData(arrayBuf, function (buf) {
       audioCropBuffer = buf
       audioCropStart.value = '0'
@@ -21313,7 +24479,7 @@ function openAudioCrop(arrayBuf, fileName) {
       updateAudioCropOkState()
       dshwLayerUp(audioCropMask, 20500) // v744：音频裁剪也可能从资源管理(20300)里打开
       audioCropMask.style.display = 'flex'
-    }, function () { alert('音频解码失败') })
+    }, function () { alert(DSHW_I18N.t('音频解码失败')) })
   } catch (err) {}
 }
 function audioCropRange() {
@@ -21693,7 +24859,7 @@ function confirmAudioCrop() {
     }
     var r = audioCropRange()
     var len = Math.floor((r.end - r.start) * audioCropBuffer.sampleRate)
-    if (len < 1) { alert('所选片段为空'); return }
+    if (len < 1) { alert(DSHW_I18N.t('所选片段为空')); return }
     var slice = audioCropCtx.createBuffer(audioCropBuffer.numberOfChannels, len, audioCropBuffer.sampleRate)
     for (var c = 0; c < audioCropBuffer.numberOfChannels; c++) {
       var src = audioCropBuffer.getChannelData(c)
@@ -22589,6 +25755,8 @@ function pollLastTurn() {
   } catch (err) {}
 }
 setInterval(function () { pollLastTurn(); pollWaitState() }, 1000)
+// 初始化 i18n：先翻译已有 DOM，再监听后续动态节点
+try { DSHW_I18N.start() } catch (err) {}
 }
 // 主界面检测通过（或稍后由 MutationObserver 检测到）后执行挂件初始化；非主界面不启动
 try { dshwTryStart(true) } catch (err) {}

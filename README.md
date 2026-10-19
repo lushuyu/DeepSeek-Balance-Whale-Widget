@@ -23,6 +23,14 @@ DeepSeek Harness（DSH）Web 界面右下角的常驻挂件：小鲸鱼气泡图
 - **每轮消耗**：SoCLaaS 的单价从 `/v1/models` 的 `soclaas.input_microdollars_per_million_tokens` / `output_...` 读取，按 `DSHW_SOCLAAS_USD_CNY`（默认 `7.1`）换算成人民币写入原有账本；泡泡里的 `¥` 金额因此是估算值，日/月额度以预算接口为准。
 - **提醒**：DeepSeek 的「余额预警 / 今日预算」是按人民币账本配置的，SoCLaaS 模式下暂不套用，避免把美元额度误当人民币阈值。
 
+## 多语言（i18n）
+
+- **自动**：读取 `navigator.languages` / `navigator.language`；`zh-*` 显示中文，其余语言显示 English。英文系统默认英文。
+- **手动覆盖**：主菜单新增「Language / 语言」一行，点击循环 `Auto → 中文 → English`；选择写入 `localStorage` 的 `dshw-lang`，刷新后保持。
+- **覆盖范围**：主菜单、SoCLaaS 额度面板、提示/音效设置、泡泡编辑器、资源管理、提醒与宿主返回的可见错误文案。约 1,900 条静态文案，另有长尾短语表与最长子串兜底，用于拼接出来的动态文本。
+- **用户内容不翻译**：泡泡里的自定义文字（以及输入框）只做精确匹配，不参与子串兜底，避免把用户写的内容改掉。
+- **离线**：所有译文都内置在 `assets/whale-widget.js` 的本地字典里，运行时不联网翻译。
+
 ## 两条分支怎么选
 
 本仓库现在只维护**一条产品线**（`main`，同一个包同时支持 DSH Web 与官方桌面客户端）。按你要挂在哪里选：
