@@ -2995,10 +2995,11 @@ var DSHW_I18N = (function () {
 
   function detect() {
     try {
+      // 只认“首选语言”：macOS 的 languages 列表常带 zh 作为次要语言，
+      // 若因为列表里有 zh 就选中文，英语系统会被误判。
       var list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ''];
-      for (var i = 0; i < list.length; i++) {
-        if (/^zh(\b|[-_])/i.test(String(list[i])) || String(list[i]).toLowerCase() === 'zh') return 'zh';
-      }
+      var first = String(list[0] || '');
+      if (/^zh(\b|[-_])/i.test(first) || first.toLowerCase() === 'zh') return 'zh';
       return 'en';
     } catch (err) { return 'zh' }
   }
